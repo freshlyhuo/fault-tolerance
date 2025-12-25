@@ -1,0 +1,50 @@
+{
+  "fault_tree_id": "business_battery_fault",
+  "description": "业务层蓄电池和母线电压遥测异常诊断",
+  "top_events": [
+    {
+      "event_id": "TOP-001",
+      "name": "CJB-RG-ZD-3",
+      "description": "蓄电池、母线电压遥测异常",
+      "fault_code": "CJB-RG-ZD-3",
+      "gate_type": "OR",
+      "children": ["MID-001", "MID-002"]
+    }
+  ],
+  "intermediate_events": [
+    {
+      "event_id": "MID-001",
+      "name": "蓄电池异常",
+      "description": "蓄电池电压和母线电压同时异常，且排除AD模块问题",
+      "gate_type": "AND",
+      "children": ["EVT-001", "EVT-002", "NOT-MID-002"]
+    },
+    {
+      "event_id": "MID-002",
+      "name": "AD模块异常",
+      "description": "AD模块采集异常导致的电压读数错误",
+      "gate_type": "BASIC",
+      "children": ["EVT-003"]
+    }
+  ],
+  "basic_events": [
+    {
+      "event_id": "EVT-001",
+      "name": "蓄电池电压异常",
+      "description": "蓄电池电压超出正常范围",
+      "alert_id": "BATTERY_VOLTAGE_ALERT"
+    },
+    {
+      "event_id": "EVT-002",
+      "name": "母线电压异常",
+      "description": "母线电压超出正常范围",
+      "alert_id": "BUS_VOLTAGE_ALERT"
+    },
+    {
+      "event_id": "EVT-003",
+      "name": "CPU板电压异常",
+      "description": "CPU板电压(TMEZD01011)不在[3.1, 3.5]V区间",
+      "alert_id": "CPU_VOLTAGE_ALERT"
+    }
+  ]
+}
