@@ -4,10 +4,10 @@
   "top_events": [
     {
       "event_id": "TOP-MS-001",
-      "name": "服务性能严重下降",
-      "description": "服务P99延迟过高且错误率过高",
+      "name": "CPU 过载或波动异常",
+      "description": "容器CPU或使用率过高或CPU使用率波动剧烈",
       "fault_code": "SVC-PERF-001",
-      "gate_type": "AND",
+      "gate_type": "OR",
       "children": ["EVT-MS-001", "EVT-MS-002"]
     },
     {
@@ -31,27 +31,15 @@
   "basic_events": [
     {
       "event_id": "EVT-MS-001",
-      "name": "P99延迟过高",
-      "description": "服务P99延迟超过5000ms",
-      "alert_id": "SERVICE_P99_LATENCY_HIGH"
-    },
-    {
-      "event_id": "EVT-MS-002",
-      "name": "错误率过高",
-      "description": "服务错误率超过15%",
-      "alert_id": "SERVICE_ERROR_RATE_HIGH"
-    },
-    {
-      "event_id": "EVT-MS-003",
       "name": "容器CPU使用率过高",
-      "description": "容器CPU使用率超过90%",
+      "description": "容器CPU使用率超过60%",
       "alert_id": "CONTAINER_CPU_HIGH"
     },
     {
-      "event_id": "EVT-MS-004",
-      "name": "容器内存使用率过高",
-      "description": "容器内存使用率超过90%",
-      "alert_id": "CONTAINER_MEMORY_HIGH"
+      "event_id": "EVT-MS-002",
+      "name": "CPU使用率波动异常",
+      "description": "容器CPU使用率波动剧烈",
+      "alert_id": "CONTAINER_CPU_FLUCTUATION"
     }
   ]
 }

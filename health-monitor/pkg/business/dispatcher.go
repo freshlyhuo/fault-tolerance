@@ -26,6 +26,11 @@ func NewDispatcher(stateManager *state.StateManager) *Dispatcher {
 	}
 }
 
+// SetDiagnosisReceiver 设置故障诊断接收器
+func (d *Dispatcher) SetDiagnosisReceiver(receiver alert.DiagnosisReceiver) {
+	d.generator.SetDiagnosisReceiver(receiver)
+}
+
 // HandleBusinessMetrics 处理业务层解析后的指标
 func (d *Dispatcher) HandleBusinessMetrics(ctx context.Context, bm *model.BusinessMetrics) {
 	fmt.Printf("[业务层Dispatcher] 收到解析指标：Comp=0x%02X Timestamp=%d\n", 

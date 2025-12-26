@@ -188,16 +188,21 @@ func (e *DiagnosisEngine) SetCallback(callback DiagnosisCallback) {
 	e.callback = callback
 }
 
-// ProcessAlert 处理告警事件
+// ProcessAlert 处理告警事件（支持恢复告警）
 func (e *DiagnosisEngine) ProcessAlert(alert *models.AlertEvent) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	e.logger.Info("接收到告警事件",
+	// 判断是恢复告警还是触发告警
+	isResolved := alert.IsResolved()
+	if !isResolved{
+		e.logger.Info("接收到告警事件",
 		zap.String("alert_id", alert.AlertID),
 		zap.String("type", alert.Type),
+		zap.String("status", string(alert.Status)),
 		zap.String("severity", alert.Severity),
-	)
+		zap.Bool("is_resolved", isResolved))
+	}
 
 	// 将告警映射到基本事件
 	eventID, ok := e.alertToEvent[alert.AlertID]
@@ -208,15 +213,21 @@ func (e *DiagnosisEngine) ProcessAlert(alert *models.AlertEvent) {
 		return
 	}
 
-	// 更新基本事件状态为真
-	e.stateManager.SetState(eventID, models.StateTrue)
-	e.logger.Info("基本事件状态已更新",
-		zap.String("event_id", eventID),
-		zap.String("state", "TRUE"),
-	)
-
-	// 触发诊断求值
-	e.diagnose()
+	// 根据告警状态更新基本事件
+	if isResolved {
+		// 恢复告警：将基本事件置为假
+		e.stateManager.SetState(eventID, models.StateFalse)
+	} else {
+		// 触发告警：将基本事件置为真
+		e.stateManager.SetState(eventID, models.StateTrue)
+		e.logger.Info("基本事件状态已更新",
+			zap.String("event_id", eventID),
+			zap.String("state", "TRUE"),
+		)
+		
+		// 触发诊断求值
+		e.diagnose()
+	}
 }
 
 // diagnose 执行诊断求值
@@ -233,7 +244,7 @@ func (e *DiagnosisEngine) diagnose() {
 	for _, topEvent := range triggeredTopEvents {
 		diagnosis := e.generateDiagnosisResult(topEvent)
 		
-		e.logger.Info("检测到系统级故障",
+		e.logger.Info("检测到故障",
 			zap.String("diagnosis_id", diagnosis.DiagnosisID),
 			zap.String("fault_code", diagnosis.FaultCode),
 			zap.String("top_event", diagnosis.TopEventName),

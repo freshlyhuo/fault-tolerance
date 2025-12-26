@@ -44,65 +44,65 @@ func NewTrendAnalyzer(sm *state.StateManager) *TrendAnalyzer {
 func (ta *TrendAnalyzer) AnalyzeNodeTrends(ctx context.Context, nodeID string) []*model.AlertEvent {
 	var alerts []*model.AlertEvent
 	
-	// 查询历史数据
-	history := ta.stateManager.QueryHistory(state.MetricTypeNode, nodeID, ta.lookbackDuration)
-	if len(history) < ta.trendWindowSize {
-		// 数据不足，无法进行趋势分析
-		return alerts
-	}
+	// // 查询历史数据
+	// history := ta.stateManager.QueryHistory(state.MetricTypeNode, nodeID, ta.lookbackDuration)
+	// if len(history) < ta.trendWindowSize {
+	// 	// 数据不足，无法进行趋势分析
+	// 	return alerts
+	// }
 	
-	// 提取节点指标序列
-	nodeMetrics := make([]*model.NodeMetrics, 0, len(history))
-	timestamps := make([]int64, 0, len(history))
+	// // 提取节点指标序列
+	// nodeMetrics := make([]*model.NodeMetrics, 0, len(history))
+	// timestamps := make([]int64, 0, len(history))
 	
-	for _, entry := range history {
-		if nodeMetric, ok := entry.Data.(*model.NodeMetrics); ok {
-			nodeMetrics = append(nodeMetrics, nodeMetric)
-			timestamps = append(timestamps, entry.Timestamp)
-		}
-	}
+	// for _, entry := range history {
+	// 	if nodeMetric, ok := entry.Data.(*model.NodeMetrics); ok {
+	// 		nodeMetrics = append(nodeMetrics, nodeMetric)
+	// 		timestamps = append(timestamps, entry.Timestamp)
+	// 	}
+	// }
 	
-	// 分析 CPU 使用率趋势
-	cpuTrend := ta.analyzeCPUTrend(nodeMetrics)
-	if cpuTrend != nil {
-		alert := &model.AlertEvent{
-			AlertID:     fmt.Sprintf("TREND-NODE-CPU-%s-%d", nodeID, time.Now().Unix()),
-			Type:        "Node-CPU-Trend",
-			FaultCode:   "TREND_CPU_INCREASE",
-			Severity:    model.SeverityWarning,
-			Source:      fmt.Sprintf("node:%s", nodeID),
-			Message:     cpuTrend.Message,
-			MetricValue: cpuTrend.Value,
-			Timestamp:   time.Now().Unix(),
-			Metadata: map[string]interface{}{
-				"trend_type":  cpuTrend.Type,
-				"change_rate": cpuTrend.ChangeRate,
-				"prediction":  cpuTrend.Prediction,
-			},
-		}
-		alerts = append(alerts, alert)
-	}
+	// // 分析 CPU 使用率趋势
+	// cpuTrend := ta.analyzeCPUTrend(nodeMetrics)
+	// if cpuTrend != nil {
+	// 	alert := &model.AlertEvent{
+	// 		AlertID:     fmt.Sprintf("TREND-NODE-CPU-%s-%d", nodeID, time.Now().Unix()),
+	// 		Type:        "Node-CPU-Trend",
+	// 		FaultCode:   "TREND_CPU_INCREASE",
+	// 		Severity:    model.SeverityWarning,
+	// 		Source:      fmt.Sprintf("node:%s", nodeID),
+	// 		Message:     cpuTrend.Message,
+	// 		MetricValue: cpuTrend.Value,
+	// 		Timestamp:   time.Now().Unix(),
+	// 		Metadata: map[string]interface{}{
+	// 			"trend_type":  cpuTrend.Type,
+	// 			"change_rate": cpuTrend.ChangeRate,
+	// 			"prediction":  cpuTrend.Prediction,
+	// 		},
+	// 	}
+	// 	alerts = append(alerts, alert)
+	// }
 	
-	// 分析内存使用率趋势
-	memoryTrend := ta.analyzeMemoryTrend(nodeMetrics)
-	if memoryTrend != nil {
-		alert := &model.AlertEvent{
-			AlertID:     fmt.Sprintf("TREND-NODE-MEM-%s-%d", nodeID, time.Now().Unix()),
-			Type:        "Node-Memory-Trend",
-			FaultCode:   "TREND_MEMORY_INCREASE",
-			Severity:    model.SeverityWarning,
-			Source:      fmt.Sprintf("node:%s", nodeID),
-			Message:     memoryTrend.Message,
-			MetricValue: memoryTrend.Value,
-			Timestamp:   time.Now().Unix(),
-			Metadata: map[string]interface{}{
-				"trend_type":  memoryTrend.Type,
-				"change_rate": memoryTrend.ChangeRate,
-				"prediction":  memoryTrend.Prediction,
-			},
-		}
-		alerts = append(alerts, alert)
-	}
+	// // 分析内存使用率趋势
+	// memoryTrend := ta.analyzeMemoryTrend(nodeMetrics)
+	// if memoryTrend != nil {
+	// 	alert := &model.AlertEvent{
+	// 		AlertID:     fmt.Sprintf("TREND-NODE-MEM-%s-%d", nodeID, time.Now().Unix()),
+	// 		Type:        "Node-Memory-Trend",
+	// 		FaultCode:   "TREND_MEMORY_INCREASE",
+	// 		Severity:    model.SeverityWarning,
+	// 		Source:      fmt.Sprintf("node:%s", nodeID),
+	// 		Message:     memoryTrend.Message,
+	// 		MetricValue: memoryTrend.Value,
+	// 		Timestamp:   time.Now().Unix(),
+	// 		Metadata: map[string]interface{}{
+	// 			"trend_type":  memoryTrend.Type,
+	// 			"change_rate": memoryTrend.ChangeRate,
+	// 			"prediction":  memoryTrend.Prediction,
+	// 		},
+	// 	}
+	// 	alerts = append(alerts, alert)
+	// }
 	
 	return alerts
 }
@@ -111,40 +111,40 @@ func (ta *TrendAnalyzer) AnalyzeNodeTrends(ctx context.Context, nodeID string) [
 func (ta *TrendAnalyzer) AnalyzeContainerTrends(ctx context.Context, containerID string) []*model.AlertEvent {
 	var alerts []*model.AlertEvent
 	
-	// 查询历史数据
-	history := ta.stateManager.QueryHistory(state.MetricTypeContainer, containerID, ta.lookbackDuration)
-	if len(history) < ta.trendWindowSize {
-		return alerts
-	}
+	// // 查询历史数据
+	// history := ta.stateManager.QueryHistory(state.MetricTypeContainer, containerID, ta.lookbackDuration)
+	// if len(history) < ta.trendWindowSize {
+	// 	return alerts
+	// }
 	
-	// 提取容器指标序列
-	containerMetrics := make([]*model.ContainerMetrics, 0, len(history))
+	// // 提取容器指标序列
+	// containerMetrics := make([]*model.ContainerMetrics, 0, len(history))
 	
-	for _, entry := range history {
-		if containerMetric, ok := entry.Data.(*model.ContainerMetrics); ok {
-			containerMetrics = append(containerMetrics, containerMetric)
-		}
-	}
+	// for _, entry := range history {
+	// 	if containerMetric, ok := entry.Data.(*model.ContainerMetrics); ok {
+	// 		containerMetrics = append(containerMetrics, containerMetric)
+	// 	}
+	// }
 	
-	// 分析重启趋势
-	restartTrend := ta.analyzeRestartTrend(containerMetrics)
-	if restartTrend != nil {
-		alert := &model.AlertEvent{
-			AlertID:     fmt.Sprintf("TREND-CONTAINER-RESTART-%s-%d", containerID, time.Now().Unix()),
-			Type:        "Container-Restart-Trend",
-			FaultCode:   "TREND_RESTART_INCREASE",
-			Severity:    model.SeverityWarning,
-			Source:      fmt.Sprintf("container:%s", containerID),
-			Message:     restartTrend.Message,
-			MetricValue: restartTrend.Value,
-			Timestamp:   time.Now().Unix(),
-			Metadata: map[string]interface{}{
-				"trend_type":   restartTrend.Type,
-				"restart_rate": restartTrend.ChangeRate,
-			},
-		}
-		alerts = append(alerts, alert)
-	}
+	// // 分析重启趋势
+	// restartTrend := ta.analyzeRestartTrend(containerMetrics)
+	// if restartTrend != nil {
+	// 	alert := &model.AlertEvent{
+	// 		AlertID:     fmt.Sprintf("TREND-CONTAINER-RESTART-%s-%d", containerID, time.Now().Unix()),
+	// 		Type:        "Container-Restart-Trend",
+	// 		FaultCode:   "TREND_RESTART_INCREASE",
+	// 		Severity:    model.SeverityWarning,
+	// 		Source:      fmt.Sprintf("container:%s", containerID),
+	// 		Message:     restartTrend.Message,
+	// 		MetricValue: restartTrend.Value,
+	// 		Timestamp:   time.Now().Unix(),
+	// 		Metadata: map[string]interface{}{
+	// 			"trend_type":   restartTrend.Type,
+	// 			"restart_rate": restartTrend.ChangeRate,
+	// 		},
+	// 	}
+	// 	alerts = append(alerts, alert)
+	// }
 	
 	return alerts
 }
@@ -153,40 +153,40 @@ func (ta *TrendAnalyzer) AnalyzeContainerTrends(ctx context.Context, containerID
 func (ta *TrendAnalyzer) AnalyzeServiceTrends(ctx context.Context, serviceID string) []*model.AlertEvent {
 	var alerts []*model.AlertEvent
 	
-	// 查询历史数据
-	history := ta.stateManager.QueryHistory(state.MetricTypeService, serviceID, ta.lookbackDuration)
-	if len(history) < ta.trendWindowSize {
-		return alerts
-	}
+	// // 查询历史数据
+	// history := ta.stateManager.QueryHistory(state.MetricTypeService, serviceID, ta.lookbackDuration)
+	// if len(history) < ta.trendWindowSize {
+	// 	return alerts
+	// }
 	
-	// 提取服务指标序列
-	serviceMetrics := make([]*model.ServiceMetrics, 0, len(history))
+	// // 提取服务指标序列
+	// serviceMetrics := make([]*model.ServiceMetrics, 0, len(history))
 	
-	for _, entry := range history {
-		if serviceMetric, ok := entry.Data.(*model.ServiceMetrics); ok {
-			serviceMetrics = append(serviceMetrics, serviceMetric)
-		}
-	}
+	// for _, entry := range history {
+	// 	if serviceMetric, ok := entry.Data.(*model.ServiceMetrics); ok {
+	// 		serviceMetrics = append(serviceMetrics, serviceMetric)
+	// 	}
+	// }
 	
-	// 分析业务校验失败率趋势
-	validationTrend := ta.analyzeValidationTrend(serviceMetrics)
-	if validationTrend != nil {
-		alert := &model.AlertEvent{
-			AlertID:     fmt.Sprintf("TREND-SERVICE-VALIDATION-%s-%d", serviceID, time.Now().Unix()),
-			Type:        "Service-Validation-Trend",
-			FaultCode:   "TREND_VALIDATION_FAILURE",
-			Severity:    model.SeverityWarning,
-			Source:      fmt.Sprintf("service:%s", serviceID),
-			Message:     validationTrend.Message,
-			MetricValue: validationTrend.Value,
-			Timestamp:   time.Now().Unix(),
-			Metadata: map[string]interface{}{
-				"trend_type":   validationTrend.Type,
-				"failure_rate": validationTrend.ChangeRate,
-			},
-		}
-		alerts = append(alerts, alert)
-	}
+	// // 分析业务校验失败率趋势
+	// validationTrend := ta.analyzeValidationTrend(serviceMetrics)
+	// if validationTrend != nil {
+	// 	alert := &model.AlertEvent{
+	// 		AlertID:     fmt.Sprintf("TREND-SERVICE-VALIDATION-%s-%d", serviceID, time.Now().Unix()),
+	// 		Type:        "Service-Validation-Trend",
+	// 		FaultCode:   "TREND_VALIDATION_FAILURE",
+	// 		Severity:    model.SeverityWarning,
+	// 		Source:      fmt.Sprintf("service:%s", serviceID),
+	// 		Message:     validationTrend.Message,
+	// 		MetricValue: validationTrend.Value,
+	// 		Timestamp:   time.Now().Unix(),
+	// 		Metadata: map[string]interface{}{
+	// 			"trend_type":   validationTrend.Type,
+	// 			"failure_rate": validationTrend.ChangeRate,
+	// 		},
+	// 	}
+	// 	alerts = append(alerts, alert)
+	// }
 	
 	return alerts
 }

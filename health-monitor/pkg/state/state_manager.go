@@ -43,6 +43,10 @@ type StateManager struct {
 	historyBuffers map[string]*RingBuffer
 	historyMutex   sync.RWMutex
 	
+	// 告警状态跟踪 (alertID -> 是否激活)
+	alertStates map[string]bool
+	alertMutex  sync.RWMutex
+	
 	// etcd客户端
 	etcdClient *clientv3.Client
 	etcdConfig clientv3.Config
@@ -119,6 +123,7 @@ func NewStateManager(endpoints ...string) (*StateManager, error) {
 	sm := &StateManager{
 		latestStates:   make(map[string]Metric),
 		historyBuffers: make(map[string]*RingBuffer),
+		alertStates:    make(map[string]bool),
 		timeBase:       time.Now().Unix(),
 		stopChan:       make(chan struct{}),
 	}
@@ -470,10 +475,91 @@ func (sm *StateManager) GetStats() map[string]interface{} {
 	historyCount := len(sm.historyBuffers)
 	sm.historyMutex.RUnlock()
 	
+	sm.alertMutex.RLock()
+	alertCount := len(sm.alertStates)
+	sm.alertMutex.RUnlock()
+	
 	return map[string]interface{}{
 		"latest_states":   stateCount,
 		"history_buffers": historyCount,
+		"active_alerts":   alertCount,
 		"ring_buffer_size": RingBufferSize,
 		"retention":       HistoryRetention.String(),
 	}
+}
+
+// SetAlertState 设置告警状态
+func (sm *StateManager) SetAlertState(alertID string, active bool) {
+	sm.alertMutex.Lock()
+	defer sm.alertMutex.Unlock()
+	sm.alertStates[alertID] = active
+}
+
+// GetAlertState 获取告警状态
+func (sm *StateManager) GetAlertState(alertID string) bool {
+	sm.alertMutex.RLock()
+	defer sm.alertMutex.RUnlock()
+	return sm.alertStates[alertID]
+}
+
+// CheckAndUpdateAlertState 检查并更新告警状态
+// 返回: (shouldSendAlert bool, isFiring bool)
+// shouldSendAlert: 是否需要发送告警（状态变化时为true）
+// isFiring: true表示触发告警，false表示恢复告警
+func (sm *StateManager) CheckAndUpdateAlertState(alertID string, isFiring bool) (bool, bool) {
+	sm.alertMutex.Lock()
+	defer sm.alertMutex.Unlock()
+	
+	wasActive, exists := sm.alertStates[alertID]
+	
+	// 状态发生变化
+	if !exists || wasActive != isFiring {
+		sm.alertStates[alertID] = isFiring
+		return true, isFiring // 需要发送告警
+	}
+	
+	// 状态未变化
+	return false, isFiring
+}
+
+// GetActiveAlertCount 获取活跃告警数量
+func (sm *StateManager) GetActiveAlertCount() int {
+	sm.alertMutex.RLock()
+	defer sm.alertMutex.RUnlock()
+	
+	count := 0
+	for _, active := range sm.alertStates {
+		if active {
+			count++
+		}
+	}
+	return count
+}
+
+// GetActiveAlerts 获取所有活跃的告警ID列表
+func (sm *StateManager) GetActiveAlerts() []string {
+	sm.alertMutex.RLock()
+	defer sm.alertMutex.RUnlock()
+	
+	var alerts []string
+	for alertID, active := range sm.alertStates {
+		if active {
+			alerts = append(alerts, alertID)
+		}
+	}
+	return alerts
+}
+
+// ClearAlertState 清除指定告警状态
+func (sm *StateManager) ClearAlertState(alertID string) {
+	sm.alertMutex.Lock()
+	defer sm.alertMutex.Unlock()
+	delete(sm.alertStates, alertID)
+}
+
+// ResetAllAlerts 重置所有告警状态
+func (sm *StateManager) ResetAllAlerts() {
+	sm.alertMutex.Lock()
+	defer sm.alertMutex.Unlock()
+	sm.alertStates = make(map[string]bool)
 }

@@ -26,6 +26,11 @@ func NewDispatcher(fetcher *Fetcher, stateManager *state.StateManager) *Dispatch
 	}
 }
 
+// SetDiagnosisReceiver 设置故障诊断接收器
+func (d *Dispatcher) SetDiagnosisReceiver(receiver alert.DiagnosisReceiver) {
+	d.generator.SetDiagnosisReceiver(receiver)
+}
+
 func (d *Dispatcher) RunOnce(ctx context.Context) (*model.MicroServiceMetricsSet, error) {
 	raw, err := d.fetcher.GatherRawMetrics(ctx)
 	if err != nil {

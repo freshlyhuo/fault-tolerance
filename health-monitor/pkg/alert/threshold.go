@@ -35,14 +35,10 @@ func CheckPowerThresholds(metrics *model.PowerMetrics) []*model.AlertEvent {
 	
 	// 蓄电池电压检查 (正常[21, 29.4]V)
 	if metrics.BatteryVoltage < 21.0 || metrics.BatteryVoltage > 29.4 {
-		severity := model.SeverityCritical
-		if metrics.BatteryVoltage >= 20.0 && metrics.BatteryVoltage < 21.0 {
-			severity = model.SeverityWarning
-		}
 		alerts = append(alerts, &model.AlertEvent{
 			AlertID:     fmt.Sprintf("PWR-BAT-%d", time.Now().Unix()),
 			Type:        "VoltageAbnormal",
-			Severity:    severity,
+			Severity:    model.SeverityCritical,
 			Source:      "BatteryVoltage",
 			Message:     fmt.Sprintf("蓄电池电压异常: %.2fV (正常[21,29.4]V)", metrics.BatteryVoltage),
 			Timestamp:   metrics.Timestamp,

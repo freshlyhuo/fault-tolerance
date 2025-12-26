@@ -42,7 +42,7 @@ fault-diagnosis/
 │   │   ├── loader.go      # 故障树配置加载
 │   │   └── watcher.go     # 配置热加载监听
 │   ├── receiver/          # 告警接收器
-│   │   └── receiver.go    # etcd/网络接收
+│   │   └── receiver.go    # 接收
 │   └── utils/             # 工具包
 │       └── logger.go      # 日志工具
 ├── configs/               # 配置文件

@@ -50,8 +50,11 @@ func (e *Evaluator) evaluateGate(node *models.EventNode) models.EventState {
 	case models.GateBASIC:
 		// BASIC门类型通常用于标记中间事件直接关联一个基本事件
 		if len(node.Children) > 0 {
-			return e.EvaluateNode(node.Children[0])
+			state := e.EvaluateNode(node.Children[0])
+			node.SetState(state)
+			return state
 		}
+		node.SetState(models.StateFalse)
 		return models.StateFalse
 	default:
 		fmt.Printf("警告：未知的逻辑门类型 %s，默认为FALSE\n", node.GateType)
