@@ -1,0 +1,79 @@
+# osv-scanner.toml
+
+# 忽略 IPv6 Hostname 验证漏洞
+[[IgnoredVulns]]
+id = "CVE-2025-47912"
+reason = "SylixOS SDK limited to 1.25.0, strictly internal network usage"
+
+# 忽略 Tar 文件解析漏洞
+[[IgnoredVulns]]
+id = "CVE-2025-58183"
+reason = "Application does not process untrusted tar files"
+
+# 忽略 ASN1/DER 内存耗尽漏洞
+[[IgnoredVulns]]
+id = "CVE-2025-58185"
+reason = "No external certificate parsing allowed"
+
+# 忽略 Cookie 解析漏洞
+[[IgnoredVulns]]
+id = "CVE-2025-58186"
+reason = "Service is not exposed to public web traffic"
+
+# ... 请根据扫描结果继续添加其他 CVE ID
+[[IgnoredVulns]]
+id = "CVE-2025-58187"
+reason = "Risk accepted due to platform constraints"
+# (继续添加列表中剩下的所有 CVE)
+
+[[IgnoredVulns]]
+id = "CVE-2025-47910"
+reason = "Go stdlib outdated in SylixOS SDK: net/http bypass"
+
+[[IgnoredVulns]]
+id = "CVE-2025-47912"
+reason = "Go stdlib outdated in SylixOS SDK: net/url IPv6 validation"
+
+[[IgnoredVulns]]
+id = "CVE-2025-58183"
+reason = "Go stdlib outdated in SylixOS SDK: archive/tar allocation"
+
+[[IgnoredVulns]]
+id = "CVE-2025-58185"
+reason = "Go stdlib outdated in SylixOS SDK: encoding/asn1 memory exhaustion"
+
+[[IgnoredVulns]]
+id = "CVE-2025-58186"
+reason = "Go stdlib outdated in SylixOS SDK: net/http cookie limit"
+
+[[IgnoredVulns]]
+id = "CVE-2025-58187"
+reason = "Go stdlib outdated in SylixOS SDK: crypto/x509 complexity"
+
+[[IgnoredVulns]]
+id = "CVE-2025-58188"
+reason = "Go stdlib outdated in SylixOS SDK: crypto/x509 DSA panic"
+
+[[IgnoredVulns]]
+id = "CVE-2025-58189"
+reason = "Go stdlib outdated in SylixOS SDK: crypto/tls ALPN"
+
+[[IgnoredVulns]]
+id = "CVE-2025-61723"
+reason = "Go stdlib outdated in SylixOS SDK: encoding/pem complexity"
+
+[[IgnoredVulns]]
+id = "CVE-2025-61724"
+reason = "Go stdlib outdated in SylixOS SDK: net/textproto CPU consumption"
+
+[[IgnoredVulns]]
+id = "CVE-2025-61725"
+reason = "Go stdlib outdated in SylixOS SDK: net/mail CPU consumption"
+
+[[IgnoredVulns]]
+id = "CVE-2025-61727"
+reason = "Go stdlib outdated in SylixOS SDK: crypto/x509 DNS constraints"
+
+[[IgnoredVulns]]
+id = "CVE-2025-61729"
+reason = "Go stdlib outdated in SylixOS SDK: crypto/x509 resource consumption"

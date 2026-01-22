@@ -70,6 +70,8 @@ type ContainerMetrics struct {
 	MemoryMaxUsage  int64   
 	SizeUsage       int64    
 	SizeLimit       int64
+	ServiceID     string
+	ServiceName   string
 }
 
 // ---------------- Service ----------------

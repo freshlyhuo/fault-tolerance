@@ -1,0 +1,39 @@
+{
+  "ThermalTemps": [
+    { "index": 1, "value": 0.0, "unit": "°C" },
+    { "index": 2, "value": 0.0, "unit": "°C" },
+    { "index": 3, "value": 0.0, "unit": "°C" },
+    { "index": 4, "value": 0.0, "unit": "°C" },
+    { "index": 5, "value": 0.0, "unit": "°C" },
+    { "index": 6, "value": 0.0, "unit": "°C" },
+    { "index": 7, "value": 0.0, "unit": "°C" },
+    { "index": 8, "value": 0.0, "unit": "°C" },
+    { "index": 9, "value": 0.0, "unit": "°C" },
+    { "index": 10, "value": 0.0, "unit": "°C" }
+  ],
+  "BatteryTemp1": {
+    "value": 0.0,
+    "unit": "°C"
+  },
+  "BatteryTemp2": {
+    "value": 0.0,
+    "unit": "°C"
+  },
+  "PlatformThermalTemp": {
+    "value": 0.0,
+    "unit": "°C"
+  },
+  "BatteryThermalTemp": {
+    "value": 0.0,
+    "unit": "°C"
+  },
+  "TankThermalTemp": {
+    "value": 0.0,
+    "unit": "°C"
+  },
+  "HeaterSwitchState": {
+    "PlatformHeater": false,
+    "BatteryHeater": false,
+    "TankHeater": false
+  }
+}

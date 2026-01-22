@@ -116,6 +116,8 @@
 
 ## 详细数据流
 
+相关规范：业务层二进制报文格式与 Pub/Sub 推送接口见 `pkg/business/BUSINESS_PACKET_PUBSUB_SPEC.md`。
+
 ### 业务层数据流
 ```
 1. 报文接收

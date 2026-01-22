@@ -104,6 +104,7 @@ func handleDiagnosisResult(diagnosis *models.DiagnosisResult, logger *zap.Logger
 		zap.String("顶层事件", diagnosis.TopEventName),
 		zap.String("故障码", diagnosis.FaultCode),
 		zap.String("故障原因", diagnosis.FaultReason),
+		zap.String("诊断源", diagnosis.Source),
 		zap.Time("诊断时间", diagnosis.Timestamp),
 		zap.Strings("触发路径", diagnosis.TriggerPath),
 		zap.Strings("基本事件", diagnosis.BasicEvents),

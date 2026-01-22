@@ -1,0 +1,57 @@
+{
+  "SNR": 0,
+  "ReceiveRSSI": 0,
+  "CANStatus": 0,
+  "SerialStatus": 0,
+  "AirToAirStatus": 0,
+  "ReceiveCmdCount": 0,
+  "ReceiveCTACount": 0,
+  "SwitchState": 0,
+  "TelemetryEncryptStatus": 0,
+  "TelecontrolEncryptStatus": 0,
+
+  "SerialPortStats": {
+    "Port0": {
+      "ParityErrorCount": 0,
+      "FrameHeaderErrorCount": 0,
+      "FrameLengthErrorCount": 0,
+      "SerialResetCount": 0
+    },
+    "Port1": {
+      "ParityErrorCount": 0,
+      "FrameHeaderErrorCount": 0,
+      "FrameLengthErrorCount": 0,
+      "SerialResetCount": 0
+    },
+    "Port5": {
+      "ParityErrorCount": 0,
+      "FrameHeaderErrorCount": 0,
+      "FrameLengthErrorCount": 0,
+      "SerialResetCount": 0
+    },
+    "Port6": {
+      "ParityErrorCount": 0,
+      "FrameHeaderErrorCount": 0,
+      "FrameLengthErrorCount": 0,
+      "SerialResetCount": 0
+    },
+    "Port8": {
+      "ParityErrorCount": 0,
+      "FrameHeaderErrorCount": 0,
+      "FrameLengthErrorCount": 0,
+      "SerialResetCount": 0
+    },
+    "Port9": {
+      "ParityErrorCount": 0,
+      "FrameHeaderErrorCount": 0,
+      "FrameLengthErrorCount": 0,
+      "SerialResetCount": 0
+    },
+    "Port12": {
+      "ParityErrorCount": 0,
+      "FrameHeaderErrorCount": 0,
+      "FrameLengthErrorCount": 0,
+      "SerialResetCount": 0
+    }
+  }
+}

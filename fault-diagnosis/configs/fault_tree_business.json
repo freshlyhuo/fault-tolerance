@@ -6,7 +6,7 @@
       "event_id": "TOP-001",
       "name": "CJB-RG-ZD-3",
       "description": "蓄电池、母线电压遥测异常",
-      "fault_code": "CJB-RG-ZD-3",
+      "fault_code": "YW-RG-ZD-3",
       "gate_type": "OR",
       "children": ["MID-001", "MID-002"]
     }

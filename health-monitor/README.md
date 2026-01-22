@@ -10,6 +10,8 @@
 - **业务层**: 二进制报文解析 (供电、热控、通信、姿控等15+组件)
 - **微服务层**: ECSM API 监控 (节点、容器、服务指标)
 
+业务层报文规范与 Pub/Sub 推送接口说明：见 `pkg/business/BUSINESS_PACKET_PUBSUB_SPEC.md`。
+
 ### 2. 状态管理
 - **实时状态**: 内存 Map，100ns 查询
 - **历史数据**: Ring Buffer (600条/指标)，10μs 查询
@@ -43,6 +45,7 @@ health-monitor/
 │   ├── business/         # 业务层
 │   │   ├── receiver.go       # 报文接收解析
 │   │   └── dispatcher.go     # 指标派发
+│   │   └── BUSINESS_PACKET_PUBSUB_SPEC.md # 业务层报文规范 + Pub/Sub接口
 │   │
 │   ├── microservice/     # 微服务层
 │   │   ├── fetcher.go        # 指标采集

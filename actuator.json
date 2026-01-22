@@ -1,0 +1,16 @@
+{
+  "WheelSpeed": {
+    "X": {
+      "value": 0,
+      "unit": "rpm"
+    },
+    "Y": {
+      "value": 0,
+      "unit": "rpm"
+    },
+    "Z": {
+      "value": 0,
+      "unit": "rpm"
+    }
+  }
+}

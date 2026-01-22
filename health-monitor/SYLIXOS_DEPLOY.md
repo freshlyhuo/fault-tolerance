@@ -18,8 +18,9 @@ go mod tidy
 
 # 2. 交叉编译 SylixOS ARM64
 mkdir -p build
-GOOS=sylixos GOARCH=arm64 go build -ldflags="-s -w" -o build/health-monitor-sylixos ./cmd/monitor
-
+GOOS=sylixos GOARCH=arm64 go build -ldflags="-s -w" -o build/health-monitor-sylixos ./cmd/integration_test
+GOOS=sylixos GOARCH=arm64 go build -ldflags="-s -w" -o build/health-monitor-sylixos ./cmd/integration_test_microservice
+GOOS=sylixos GOARCH=arm64 go build -ldflags="-s -w" -o build/health-monitor-sylixos ./cmd/integration_test_business
 # 3. 检查编译结果
 ls -lh build/health-monitor-sylixos
 ```

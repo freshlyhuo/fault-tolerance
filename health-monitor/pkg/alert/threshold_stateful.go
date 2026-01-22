@@ -216,7 +216,17 @@ func CheckContainerThresholdsWithState(metrics *model.ContainerMetrics, sm *stat
 	cpuUsage := metrics.CPUUsage.Total
 	alertID := fmt.Sprintf("CONTAINER_CPU_HIGH")
 	isFiring := cpuUsage > 60.0
-	shouldSend, firing := sm.CheckAndUpdateAlertState(alertID, isFiring)
+	shouldSend, firing := sm.CheckAndUpdateAlertStateWithSource(alertID, metrics.ID, isFiring)
+	var containerMetadata map[string]interface{}
+	if metrics.ServiceName != "" || metrics.ServiceID != "" {
+		containerMetadata = map[string]interface{}{}
+		if metrics.ServiceName != "" {
+			containerMetadata["serviceName"] = metrics.ServiceName
+		}
+		if metrics.ServiceID != "" {
+			containerMetadata["serviceId"] = metrics.ServiceID
+		}
+	}
 	
 	if shouldSend {
 		var alert *model.AlertEvent
@@ -230,6 +240,7 @@ func CheckContainerThresholdsWithState(metrics *model.ContainerMetrics, sm *stat
 				Message:     fmt.Sprintf("容器CPU使用率过高: %.2f%%", cpuUsage),
 				Timestamp:   time.Now().Unix(),
 				MetricValue: cpuUsage,
+				Metadata:    containerMetadata,
 			}
 		} else {
 			alert = &model.AlertEvent{
@@ -240,47 +251,91 @@ func CheckContainerThresholdsWithState(metrics *model.ContainerMetrics, sm *stat
 				Source:      metrics.ID,
 				Timestamp:   time.Now().Unix(),
 				MetricValue: cpuUsage,
+				Metadata:    containerMetadata,
 			}
 		}
 		alerts = append(alerts, alert)
 	}
 
-	// // 内存使用率检查（ContainerMetrics.MemoryUsage 是 int64）
-	// var memoryUsage float64
-	// if metrics.MemoryLimit > 0 {
-	// 	memoryUsage = float64(metrics.MemoryUsage) / float64(metrics.MemoryLimit) * 100.0
-	// }
-	
-	// alertID = fmt.Sprintf("CONTAINER_MEMORY_HIGH")
-	// isFiring = memoryUsage > 60.0
-	// shouldSend, firing = sm.CheckAndUpdateAlertState(alertID, isFiring)
-	
-	// if shouldSend {
-	// 	var alert *model.AlertEvent
-	// 	if firing {
-	// 		alert = &model.AlertEvent{
-	// 			AlertID:     alertID,
-	// 			Type:        "memory_high",
-	// 			Status:      model.AlertStatusFiring,
-	// 			Severity:    model.SeverityCritical,
-	// 			Source:      metrics.ID,
-	// 			Message:     fmt.Sprintf("容器内存使用率过高: %.2f%%", memoryUsage),
-	// 			Timestamp:   time.Now().Unix(),
-	// 			MetricValue: memoryUsage,
-	// 		}
-	// 	} else {
-	// 		alert = &model.AlertEvent{
-	// 			AlertID:     alertID,
-	// 			Type:        "memory_high",
-	// 			Status:      model.AlertStatusResolved,
-	// 			Severity:    model.SeverityInfo,
-	// 			Source:      metrics.ID,
-	// 			Timestamp:   time.Now().Unix(),
-	// 			MetricValue: memoryUsage,
-	// 		}
-	// 	}
-	// 	alerts = append(alerts, alert)
-	// }
+	// 内存使用率检查（ContainerMetrics.MemoryUsage 是 int64）
+	var memoryUsage float64
+	if metrics.MemoryLimit > 0 {
+		memoryUsage = float64(metrics.MemoryUsage) / float64(metrics.MemoryLimit) * 100.0
+	}
+
+	alertID = fmt.Sprintf("CONTAINER_MEMORY_HIGH")
+	isFiring = memoryUsage > 90.0
+	shouldSend, firing = sm.CheckAndUpdateAlertStateWithSource(alertID, metrics.ID, isFiring)
+
+	if shouldSend {
+		var alert *model.AlertEvent
+		if firing {
+			alert = &model.AlertEvent{
+				AlertID:     alertID,
+				Type:        "memory_high",
+				Status:      model.AlertStatusFiring,
+				Severity:    model.SeverityCritical,
+				Source:      metrics.ID,
+				Message:     fmt.Sprintf("容器内存使用率过高: %.2f%%", memoryUsage),
+				Timestamp:   time.Now().Unix(),
+				MetricValue: memoryUsage,
+				Metadata:    containerMetadata,
+			}
+		} else {
+			alert = &model.AlertEvent{
+				AlertID:     alertID,
+				Type:        "memory_high",
+				Status:      model.AlertStatusResolved,
+				Severity:    model.SeverityInfo,
+				Source:      metrics.ID,
+				Message:     fmt.Sprintf("容器内存使用率已恢复正常: %.2f%%", memoryUsage),
+				Timestamp:   time.Now().Unix(),
+				MetricValue: memoryUsage,
+				Metadata:    containerMetadata,
+			}
+		}
+		alerts = append(alerts, alert)
+	}
+
+	// 磁盘使用率检查（ContainerMetrics.SizeUsage 是 int64）
+	var diskUsage float64
+	if metrics.SizeLimit > 0 {
+		diskUsage = float64(metrics.SizeUsage) / float64(metrics.SizeLimit) * 100.0
+	}
+
+	alertID = fmt.Sprintf("CONTAINER_DISK_HIGH")
+	isFiring = diskUsage > 90.0
+	shouldSend, firing = sm.CheckAndUpdateAlertStateWithSource(alertID, metrics.ID, isFiring)
+
+	if shouldSend {
+		var alert *model.AlertEvent
+		if firing {
+			alert = &model.AlertEvent{
+				AlertID:     alertID,
+				Type:        "disk_high",
+				Status:      model.AlertStatusFiring,
+				Severity:    model.SeverityCritical,
+				Source:      metrics.ID,
+				Message:     fmt.Sprintf("容器磁盘使用率过高: %.2f%%", diskUsage),
+				Timestamp:   time.Now().Unix(),
+				MetricValue: diskUsage,
+				Metadata:    containerMetadata,
+			}
+		} else {
+			alert = &model.AlertEvent{
+				AlertID:     alertID,
+				Type:        "disk_high",
+				Status:      model.AlertStatusResolved,
+				Severity:    model.SeverityInfo,
+				Source:      metrics.ID,
+				Message:     fmt.Sprintf("容器磁盘使用率已恢复正常: %.2f%%", diskUsage),
+				Timestamp:   time.Now().Unix(),
+				MetricValue: diskUsage,
+				Metadata:    containerMetadata,
+			}
+		}
+		alerts = append(alerts, alert)
+	}
 
 	// // CPU波动检查
 	// isFiring = metrics.CPUUsage > 60.0 && metrics.CPUUsage < 90.0

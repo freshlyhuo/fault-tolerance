@@ -1,0 +1,195 @@
+{
+  "fault_codes": {
+    "BUSINESS-IMAGE-START": {
+      "name": "c_worker",
+      "image": {
+        "ref": "c_worker@1.0.0#sylixos",
+        "action": "run",
+        "config": {
+          "platform": {
+            "os": "sylixos",
+            "arch": "arm64"
+          },
+          "process": {
+            "args": ["/bin/c_worker"],
+            "env": ["ENV=prod"],
+            "cwd": "/"
+          },
+          "root": {
+            "path": "/",
+            "readonly": false
+          },
+          "mounts": [],
+          "sylixos": {
+            "devices": [],
+            "resources": {
+              "cpu": {"highestPrio": 80, "lowestPrio": 10},
+              "memory": {"kheapLimit": 64, "memoryLimitMB": 256},
+              "disk": {"limitMB": 512},
+              "kernelObject": {"threadLimit": 128, "threadPoolLimit": 64, "eventLimit": 128, "eventSetLimit": 128, "partitionLimit": 16, "regionLimit": 32, "msgQueueLimit": 64, "timerLimit": 64}
+            },
+            "network": {"ftpdEnable": false, "telnetdEnable": false},
+            "commands": []
+          }
+        },
+        "pullPolicy": "IfNotPresent",
+        "autoUpgrade": "Never"
+      },
+      "node": {
+        "names": ["node-1"]
+      },
+      "policy": "static",
+      "prepull": false
+    }
+  },
+  "event_presets": {
+    "MID-001": {
+      "name": "worker",
+      "image": {
+        "ref": "worker@latest#sylixos",
+        "action": "run",
+        "config": {
+          "platform": {
+            "os": "sylixos",
+            "arch": "arm64"
+          },
+          "process": {
+            "args": [],
+            "env": [
+              "PATH=/usr/bin:/bin:/usr/pkg/sbin:/sbin:/usr/local/bin",
+              "LD_LIBRARY_PATH=/usr/lib:/lib:/usr/local/lib"
+            ]
+          },
+          "root": {},
+          "mounts": [
+            {
+              "destination": "/etc/lic",
+              "source": "/etc/lic",
+              "options": [
+                "ro"
+              ]
+            }
+          ],
+          "sylixos": {
+            "commands": [
+                    "exec",
+                    "top",
+                    "cpuus",
+                    "vi",
+                    "cat",
+                    "touch",
+                    "ps",
+                    "ts",
+                    "tp",
+                    "ss",
+                    "ints",
+                    "ls",
+                    "cd",
+                    "pwd",
+                    "modules",
+                    "varload",
+                    "varsave",
+                    "shstack",
+                    "srtp",
+                    "shfile",
+                    "help",
+                    "debug",
+                    "shell",
+                    "ll",
+                    "sync",
+                    "ln",
+                    "kill",
+                    "free",
+                    "ifconfig",
+                    "mems",
+                    "env"
+            ],
+            "devices": [
+                    {
+                        "path": "/dev/fb0",
+                        "access": "rw"
+                    },
+                    {
+                        "path": "/dev/input/xmse",
+                        "access": "rw"
+                    },
+                    {
+                        "path": "/dev/input/xkbd",
+                        "access": "rw"
+                    },
+                    {
+                        "path": "/dev/net/vnd",
+                        "access": "rw"
+                    }
+            ],
+            "resources": {
+              "cpu": {"highestPrio": 150, "lowestPrio": 250},
+              "memory": {"kheapLimit": 2097152, "memoryLimitMB": 2048},
+              "disk": {"limitMB": 2048},
+              "kernelObject": {"threadLimit": 300, "threadPoolLimit": 1, "eventLimit": 800, "eventSetLimit": 50, "partitionLimit": 5, "regionLimit": 5, "msgQueueLimit": 100, "timerLimit": 5}
+            },
+            "network": {"ftpdEnable": true, "telnetdEnable": true}
+          }
+        },
+        "vsoa": {
+          "port": 0,
+          "password": "123445",
+          "healthPath": "/health",
+          "healthTimeout": 3000,
+          "healthRetries": 3,
+          "healthStartPeriod": 5000,
+          "healthInterval": 5000,
+          "livenessProbe": false
+        },
+        "pullPolicy": "IfNotPresent",
+        "autoUpgrade": "Never"
+      },
+      "node": {
+        "names": ["master"]
+      },
+      "policy": "static",
+      "prepull": false
+    },
+    "MID-002": {
+      "name": "ad_module_service",
+      "image": {
+        "ref": "ad_module_service@1.0.0#sylixos",
+        "action": "run",
+        "config": {
+          "platform": {
+            "os": "sylixos",
+            "arch": "arm64"
+          },
+          "process": {
+            "args": ["/bin/ad_module_service"],
+            "env": ["ENV=prod"],
+            "cwd": "/"
+          },
+          "root": {
+            "path": "/",
+            "readonly": false
+          },
+          "mounts": [],
+          "sylixos": {
+            "devices": [],
+            "resources": {
+              "cpu": {"highestPrio": 80, "lowestPrio": 10},
+              "memory": {"kheapLimit": 64, "memoryLimitMB": 256},
+              "disk": {"limitMB": 512},
+              "kernelObject": {"threadLimit": 128, "threadPoolLimit": 64, "eventLimit": 128, "eventSetLimit": 128, "partitionLimit": 16, "regionLimit": 32, "msgQueueLimit": 64, "timerLimit": 64}
+            },
+            "network": {"ftpdEnable": false, "telnetdEnable": false},
+            "commands": []
+          }
+        },
+        "pullPolicy": "IfNotPresent",
+        "autoUpgrade": "Never"
+      },
+      "node": {
+        "names": ["node-1"]
+      },
+      "policy": "static",
+      "prepull": false
+    }
+  }
+}

@@ -22,6 +22,9 @@ import (
 	diagnosisReceiver "fault-diagnosis/pkg/receiver"
 	diagnosisUtils "fault-diagnosis/pkg/utils"
 
+	// 故障修复模块
+	recovery "fault-tolerance/fault-recovery/pkg/recovery"
+
 	"go.uber.org/zap"
 )
 
@@ -73,12 +76,24 @@ func main() {
 		logger.Fatal("创建微服务层诊断引擎失败", zap.Error(err))
 	}
 
+	// 创建故障修复引擎
+	recoveryState := recovery.NewInMemoryStateManager()
+	recoveryEngine := recovery.NewEngine(recoveryState, recovery.NewEngineConfig{
+		QueueSize: 200,
+		Timeout:   10 * time.Second,
+	})
+	recoveryStore := recovery.NewRuntimeStore()
+	recoveryEngine.RegisterAction("CONTAINER-RESOURCE-001", recovery.NewCircuitBreakerAction(recoveryStore))
+	recoveryEngine.RegisterAction("BUSINESS-IMAGE-START", recovery.NewStartContainerAction(recoveryStore))
+	recoveryEngine.Start(ctx)
+
 	// 设置诊断回调
 	businessEngine.SetCallback(func(diagnosis *diagnosisModels.DiagnosisResult) {
 		fmt.Println("\n" + strings.Repeat("═", 70))
 		fmt.Println("[业务层] 检测到故障!")
 		fmt.Println(strings.Repeat("═", 70))
 		printDiagnosis(diagnosis)
+		_ = recoveryEngine.Submit(convertToRecoveryDiagnosis(diagnosis))
 	})
 
 	microserviceEngine.SetCallback(func(diagnosis *diagnosisModels.DiagnosisResult) {
@@ -86,6 +101,7 @@ func main() {
 		fmt.Println("[微服务层] 检测到故障!")
 		fmt.Println(strings.Repeat("═", 70))
 		printDiagnosis(diagnosis)
+		_ = recoveryEngine.Submit(convertToRecoveryDiagnosis(diagnosis))
 	})
 
 	// 创建告警接收器
@@ -284,8 +300,35 @@ func printDiagnosis(diagnosis *diagnosisModels.DiagnosisResult) {
 	fmt.Printf("故障码:     %s\n", diagnosis.FaultCode)
 	fmt.Printf("顶层事件:   %s\n", diagnosis.TopEventName)
 	fmt.Printf("故障原因:   %s\n", diagnosis.FaultReason)
+	fmt.Printf("诊断源:     %s\n", diagnosis.Source)
 	fmt.Printf("诊断时间:   %s\n", diagnosis.Timestamp.Format("2006-01-02 15:04:05"))
 	fmt.Printf("触发路径:   %v\n", diagnosis.TriggerPath)
 	fmt.Printf("基本事件:   %v\n", diagnosis.BasicEvents)
 	fmt.Println(strings.Repeat("═", 70) + "\n")
+}
+
+func convertToRecoveryDiagnosis(diagnosis *diagnosisModels.DiagnosisResult) recovery.DiagnosisResult {
+	result := recovery.DiagnosisResult{
+		DiagnosisID:  diagnosis.DiagnosisID,
+		FaultTreeID:  diagnosis.FaultTreeID,
+		TopEventID:   diagnosis.TopEventID,
+		TopEventName: diagnosis.TopEventName,
+		FaultCode:    diagnosis.FaultCode,
+		FaultReason:  diagnosis.FaultReason,
+		Source:       diagnosis.Source,
+		Timestamp:    diagnosis.Timestamp,
+		TriggerPath:  diagnosis.TriggerPath,
+		BasicEvents:  diagnosis.BasicEvents,
+		Metadata:     diagnosis.Metadata,
+	}
+
+	if result.Metadata == nil {
+		result.Metadata = map[string]interface{}{}
+	}
+
+	if _, ok := result.Metadata["status"]; !ok {
+		result.Metadata["status"] = "FIRING"
+	}
+
+	return result
 }

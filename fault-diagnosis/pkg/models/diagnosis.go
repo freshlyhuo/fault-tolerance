@@ -10,6 +10,7 @@ type DiagnosisResult struct {
 	TopEventName  string                 // 顶层事件名称
 	FaultCode     string                 // 故障码
 	FaultReason   string                 // 故障原因
+	Source        string                 // 诊断源（与告警Source一致）
 	Timestamp     time.Time              // 诊断时间
 	TriggerPath   []string               // 触发路径（事件ID列表）
 	BasicEvents   []string               // 触发的基本事件列表

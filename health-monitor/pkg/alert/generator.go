@@ -247,9 +247,18 @@ func (g *Generator) outputAlerts(alerts []*model.AlertEvent) {
 
 // printAlert 打印单个告警
 func (g *Generator) printAlert(alert *model.AlertEvent) {
+	serviceName := ""
+	if alert.Metadata != nil {
+		if v, ok := alert.Metadata["serviceName"].(string); ok {
+			serviceName = v
+		}
+	}
 	fmt.Printf("  [%s] %s\n", alert.AlertID, alert.Type)
 	fmt.Printf("    故障码: %s\n", alert.FaultCode)
 	fmt.Printf("    来源: %s\n", alert.Source)
+	if serviceName != "" {
+		fmt.Printf("    服务名: %s\n", serviceName)
+	}
 	fmt.Printf("    消息: %s\n", alert.Message)
 	fmt.Printf("    指标值: %.2f\n", alert.MetricValue)
 	fmt.Printf("    时间戳: %d\n\n", alert.Timestamp)

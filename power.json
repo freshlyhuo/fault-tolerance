@@ -1,0 +1,30 @@
+{
+  "PowerModule12V": {
+    "value": 0,
+    "unit": "mV"
+  },
+  "BatteryVoltage": {
+    "value": 0,
+    "unit": "mV"
+  },
+  "BusVoltage": {
+    "value": 0,
+    "unit": "mV"
+  },
+  "CPUVoltage": {
+    "value": 0,
+    "unit": "mV"
+  },
+  "ThermalRefVoltage": {
+    "value": 0,
+    "unit": "mV"
+  },
+  "Bracket12VCurrent": {
+    "value": 0,
+    "unit": "mA"
+  },
+  "LoadCurrent": {
+    "value": 0,
+    "unit": "mA"
+  }
+}

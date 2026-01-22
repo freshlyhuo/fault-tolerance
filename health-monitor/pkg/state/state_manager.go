@@ -507,14 +507,32 @@ func (sm *StateManager) GetAlertState(alertID string) bool {
 // shouldSendAlert: 是否需要发送告警（状态变化时为true）
 // isFiring: true表示触发告警，false表示恢复告警
 func (sm *StateManager) CheckAndUpdateAlertState(alertID string, isFiring bool) (bool, bool) {
+	key := sm.alertKey(alertID, "")
+	return sm.checkAndUpdateAlertStateByKey(key, isFiring)
+}
+
+// CheckAndUpdateAlertStateWithSource 按告警ID+来源维度检查并更新状态
+func (sm *StateManager) CheckAndUpdateAlertStateWithSource(alertID, source string, isFiring bool) (bool, bool) {
+	key := sm.alertKey(alertID, source)
+	return sm.checkAndUpdateAlertStateByKey(key, isFiring)
+}
+
+func (sm *StateManager) alertKey(alertID, source string) string {
+	if source == "" {
+		return alertID
+	}
+	return fmt.Sprintf("%s:%s", alertID, source)
+}
+
+func (sm *StateManager) checkAndUpdateAlertStateByKey(key string, isFiring bool) (bool, bool) {
 	sm.alertMutex.Lock()
 	defer sm.alertMutex.Unlock()
 	
-	wasActive, exists := sm.alertStates[alertID]
+	wasActive, exists := sm.alertStates[key]
 	
 	// 状态发生变化
 	if !exists || wasActive != isFiring {
-		sm.alertStates[alertID] = isFiring
+		sm.alertStates[key] = isFiring
 		return true, isFiring // 需要发送告警
 	}
 	

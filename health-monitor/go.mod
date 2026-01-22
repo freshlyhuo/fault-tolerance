@@ -1,6 +1,6 @@
 module health-monitor
 
-go 1.24.5
+go 1.25.0
 
 require go.etcd.io/etcd/client/v3 v3.5.11
 

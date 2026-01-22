@@ -89,6 +89,8 @@ func (e *Extractor) ExtractContainerMetrics(containers []ContainerInfo) []model.
 			MemoryMaxUsage: c.MemoryMaxUsage,
 			SizeUsage:      c.SizeUsage,
 			SizeLimit:      c.SizeLimit,
+			ServiceID:      c.ServiceID,
+			ServiceName:    c.ServiceName,
 		})
 	}
 

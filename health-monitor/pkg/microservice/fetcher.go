@@ -68,8 +68,8 @@ func (f *Fetcher) ListNode(ctx context.Context, opts NodeListOptions) (*NodeList
 
 	// 解析结构：data → NodeList
 	var result struct {
-		Status  int                `json:"status"`
-		Message string             `json:"message"`
+		Status  int       `json:"status"`
+		Message string   `json:"message"`
 		Data    NodeList `json:"data"`
 	}
 

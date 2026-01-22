@@ -19,6 +19,10 @@ type DiagnosisEngine struct {
 	logger       *zap.Logger             // 日志
 	mu           sync.RWMutex            // 读写锁
 	callback     DiagnosisCallback       // 诊断回调函数
+	topEventSource      map[string]string // 顶层事件ID -> 触发源
+	topEventServiceID   map[string]string // 顶层事件ID -> serviceId
+	topEventServiceName map[string]string // 顶层事件ID -> serviceName
+	topEventMu          sync.RWMutex      // 顶层事件上下文锁
 }
 
 // DiagnosisCallback 诊断回调函数类型
@@ -40,6 +44,9 @@ func NewDiagnosisEngine(faultTree *models.FaultTree, logger *zap.Logger) (*Diagn
 		alertToEvent: make(map[string]string),
 		stateManager: NewStateManager(),
 		logger:       logger,
+		topEventSource:      make(map[string]string),
+		topEventServiceID:   make(map[string]string),
+		topEventServiceName: make(map[string]string),
 	}
 
 	// 构建故障树运行时结构
@@ -207,9 +214,6 @@ func (e *DiagnosisEngine) ProcessAlert(alert *models.AlertEvent) {
 	// 将告警映射到基本事件
 	eventID, ok := e.alertToEvent[alert.AlertID]
 	if !ok {
-		e.logger.Warn("告警ID未映射到任何基本事件",
-			zap.String("alert_id", alert.AlertID),
-		)
 		return
 	}
 
@@ -224,42 +228,148 @@ func (e *DiagnosisEngine) ProcessAlert(alert *models.AlertEvent) {
 			zap.String("event_id", eventID),
 			zap.String("state", "TRUE"),
 		)
-		
-		// 触发诊断求值
-		e.diagnose()
 	}
+
+	// 触发诊断求值（无论触发/恢复都进行，以更新故障状态）
+	serviceID := ""
+	serviceName := ""
+	if alert.Metadata != nil {
+		if v, ok := alert.Metadata["serviceId"].(string); ok {
+			serviceID = v
+		}
+		if v, ok := alert.Metadata["serviceName"].(string); ok {
+			serviceName = v
+		}
+	}
+	e.diagnose(alert.Source, serviceID, serviceName)
 }
 
 // diagnose 执行诊断求值
-func (e *DiagnosisEngine) diagnose() {
-	// 对所有顶层事件进行求值
-	triggeredTopEvents := e.evaluator.EvaluateTree(e.topEvents)
+func (e *DiagnosisEngine) diagnose(source, serviceID, serviceName string) {
+	triggered := 0
 
-	if len(triggeredTopEvents) == 0 {
-		e.logger.Debug("未触发任何顶层故障事件")
-		return
+	for _, topEvent := range e.topEvents {
+		prevState := e.stateManager.GetState(topEvent.EventID)
+		state := e.evaluator.EvaluateNode(topEvent)
+
+		if state != prevState {
+			e.stateManager.SetState(topEvent.EventID, state)
+		}
+
+		if state == models.StateTrue {
+			triggered++
+			if prevState != models.StateTrue {
+				e.setTopEventContext(topEvent.EventID, source, serviceID, serviceName)
+				ctxSource, ctxServiceID, ctxServiceName := e.getTopEventContext(topEvent.EventID, source, serviceID, serviceName)
+				diagnosis := e.generateDiagnosisResult(topEvent, ctxSource)
+				if ctxServiceID != "" {
+					diagnosis.Metadata["serviceId"] = ctxServiceID
+				}
+				if ctxServiceName != "" {
+					diagnosis.Metadata["serviceName"] = ctxServiceName
+				}
+
+				e.logger.Info("检测到故障",
+					zap.String("diagnosis_id", diagnosis.DiagnosisID),
+					zap.String("fault_code", diagnosis.FaultCode),
+					zap.String("top_event", diagnosis.TopEventName),
+					zap.String("source", diagnosis.Source),
+					zap.Strings("trigger_path", diagnosis.TriggerPath),
+				)
+
+				// 调用回调函数
+				if e.callback != nil {
+					e.callback(diagnosis)
+				}
+			}
+		} else if prevState == models.StateTrue {
+			// 故障恢复：发送恢复诊断结果（使用触发时的上下文）
+			ctxSource, ctxServiceID, ctxServiceName := e.getTopEventContext(topEvent.EventID, source, serviceID, serviceName)
+			diagnosis := e.generateDiagnosisResult(topEvent, ctxSource)
+			if ctxServiceID != "" {
+				diagnosis.Metadata["serviceId"] = ctxServiceID
+			}
+			if ctxServiceName != "" {
+				diagnosis.Metadata["serviceName"] = ctxServiceName
+			}
+			diagnosis.Metadata["status"] = "RESOLVED"
+			e.clearTopEventContext(topEvent.EventID)
+			if e.callback != nil {
+				e.callback(diagnosis)
+			}
+		}
 	}
 
-	// 生成诊断结果
-	for _, topEvent := range triggeredTopEvents {
-		diagnosis := e.generateDiagnosisResult(topEvent)
-		
-		e.logger.Info("检测到故障",
-			zap.String("diagnosis_id", diagnosis.DiagnosisID),
-			zap.String("fault_code", diagnosis.FaultCode),
-			zap.String("top_event", diagnosis.TopEventName),
-			zap.Strings("trigger_path", diagnosis.TriggerPath),
-		)
-
-		// 调用回调函数
-		if e.callback != nil {
-			e.callback(diagnosis)
-		}
+	if triggered == 0 {
+		e.logger.Debug("未触发任何顶层故障事件")
 	}
 }
 
+func (e *DiagnosisEngine) setTopEventSource(eventID, source string) {
+	e.topEventMu.Lock()
+	defer e.topEventMu.Unlock()
+	if source != "" {
+		e.topEventSource[eventID] = source
+	}
+}
+
+func (e *DiagnosisEngine) getTopEventSource(eventID, fallback string) string {
+	e.topEventMu.RLock()
+	defer e.topEventMu.RUnlock()
+	if src, ok := e.topEventSource[eventID]; ok && src != "" {
+		return src
+	}
+	return fallback
+}
+
+func (e *DiagnosisEngine) clearTopEventSource(eventID string) {
+	e.topEventMu.Lock()
+	defer e.topEventMu.Unlock()
+	delete(e.topEventSource, eventID)
+}
+
+func (e *DiagnosisEngine) setTopEventContext(eventID, source, serviceID, serviceName string) {
+	e.topEventMu.Lock()
+	defer e.topEventMu.Unlock()
+	if source != "" {
+		e.topEventSource[eventID] = source
+	}
+	if serviceID != "" {
+		e.topEventServiceID[eventID] = serviceID
+	}
+	if serviceName != "" {
+		e.topEventServiceName[eventID] = serviceName
+	}
+}
+
+func (e *DiagnosisEngine) getTopEventContext(eventID, fallbackSource, fallbackServiceID, fallbackServiceName string) (string, string, string) {
+	e.topEventMu.RLock()
+	defer e.topEventMu.RUnlock()
+	source := fallbackSource
+	if v, ok := e.topEventSource[eventID]; ok && v != "" {
+		source = v
+	}
+	serviceID := fallbackServiceID
+	if v, ok := e.topEventServiceID[eventID]; ok && v != "" {
+		serviceID = v
+	}
+	serviceName := fallbackServiceName
+	if v, ok := e.topEventServiceName[eventID]; ok && v != "" {
+		serviceName = v
+	}
+	return source, serviceID, serviceName
+}
+
+func (e *DiagnosisEngine) clearTopEventContext(eventID string) {
+	e.topEventMu.Lock()
+	defer e.topEventMu.Unlock()
+	delete(e.topEventSource, eventID)
+	delete(e.topEventServiceID, eventID)
+	delete(e.topEventServiceName, eventID)
+}
+
 // generateDiagnosisResult 生成诊断结果
-func (e *DiagnosisEngine) generateDiagnosisResult(topEvent *models.EventNode) *models.DiagnosisResult {
+func (e *DiagnosisEngine) generateDiagnosisResult(topEvent *models.EventNode, source string) *models.DiagnosisResult {
 	diagnosis := models.NewDiagnosisResult(
 		e.faultTree.FaultTreeID,
 		topEvent.EventID,
@@ -267,6 +377,7 @@ func (e *DiagnosisEngine) generateDiagnosisResult(topEvent *models.EventNode) *m
 		topEvent.FaultCode,
 		topEvent.Description,
 	)
+	diagnosis.Source = source
 
 	// 收集触发路径
 	triggerPath := make([]string, 0)

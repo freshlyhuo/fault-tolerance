@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"strings"
 
 	"fault-diagnosis/pkg/models"
 )
@@ -40,7 +41,8 @@ func (e *Evaluator) evaluateGate(node *models.EventNode) models.EventState {
 		return models.StateFalse
 	}
 
-	switch node.GateType {
+	gate := models.GateType(strings.ToUpper(string(node.GateType)))
+	switch gate {
 	case models.GateAND:
 		return e.evaluateAND(node)
 	case models.GateOR:
