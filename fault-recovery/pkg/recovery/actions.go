@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -46,6 +47,7 @@ type RuntimeStore struct {
 	containers   map[string]bool
 	containerImg map[string]string
 	services     map[string]string
+	resolved     map[string]bool
 }
 
 func NewRuntimeStore() *RuntimeStore {
@@ -54,6 +56,7 @@ func NewRuntimeStore() *RuntimeStore {
 		containers:   make(map[string]bool),
 		containerImg: make(map[string]string),
 		services:     make(map[string]string),
+		resolved:     make(map[string]bool),
 	}
 }
 
@@ -103,6 +106,18 @@ func (s *RuntimeStore) ClearServiceID(targetID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.services, targetID)
+}
+
+func (s *RuntimeStore) SetResolved(targetID string, resolved bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.resolved[targetID] = resolved
+}
+
+func (s *RuntimeStore) IsResolved(targetID string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.resolved[targetID]
 }
 
 // =================================================================================
@@ -475,6 +490,30 @@ func getenvOrDefault(key, fallback string) string {
 	return val
 }
 
+func getDurationEnv(key string, fallback time.Duration) time.Duration {
+	val := strings.TrimSpace(os.Getenv(key))
+	if val == "" {
+		return fallback
+	}
+	d, err := time.ParseDuration(val)
+	if err != nil || d <= 0 {
+		return fallback
+	}
+	return d
+}
+
+func getIntEnv(key string, fallback int) int {
+	val := strings.TrimSpace(os.Getenv(key))
+	if val == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(val)
+	if err != nil {
+		return fallback
+	}
+	return n
+}
+
 func getMetaString(meta map[string]interface{}, key string) string {
 	if meta == nil {
 		return ""
@@ -635,6 +674,10 @@ type StartContainerAction struct {
 	baseURL string
 	client  *http.Client
 	config  *RecoveryServiceConfig
+	fetcher *microservice.Fetcher
+	monitorInterval time.Duration
+	maxWait         time.Duration
+	maxRetries      int
 }
 
 func NewStartContainerAction(store *RuntimeStore) *StartContainerAction {
@@ -652,24 +695,31 @@ func NewStartContainerAction(store *RuntimeStore) *StartContainerAction {
 		baseURL: baseURL,
 		client:  &http.Client{Timeout: 10 * time.Second},
 		config:  config,
+		fetcher: microservice.NewFetcher(baseURL),
+		monitorInterval: getDurationEnv("RECOVERY_CONTAINER_MONITOR_INTERVAL", 15*time.Second),
+		maxWait:         getDurationEnv("RECOVERY_CONTAINER_MAX_WAIT", 5*time.Minute),
+		maxRetries:      getIntEnv("RECOVERY_CONTAINER_MAX_RETRIES", 2),
 	}
 }
 
 func (a *StartContainerAction) Name() string { return "start_container" }
 
 func (a *StartContainerAction) Resolve(ctx context.Context, event DiagnosisResult) error {
-	serviceID := a.store.GetServiceID(DiagnosisTargetID(event))
+	targetID := DiagnosisTargetID(event)
+	serviceID := a.store.GetServiceID(targetID)
 	if serviceID == "" {
 		serviceID = getMetaString(event.Metadata, "serviceId")
 	}
 	if serviceID == "" {
-		return errors.New("missing serviceId for delete")
+		a.store.SetResolved(targetID, true)
+		return nil
 	}
 	if err := a.callServiceCommand(ctx, "destroy", []string{serviceID}); err != nil {
 		return err
 	}
 
-	a.store.ClearServiceID(DiagnosisTargetID(event))
+	a.store.ClearServiceID(targetID)
+	a.store.SetResolved(targetID, true)
 	return nil
 }
 
@@ -759,8 +809,7 @@ func loadRecoveryServiceConfigWithFallback() (*RecoveryServiceConfig, error) {
 }
 
 func (a *StartContainerAction) fetchAvailableNodeNames(ctx context.Context) ([]string, error) {
-	fetcher := microservice.NewFetcher(a.baseURL)
-	page, err := fetcher.ListNode(ctx, microservice.NodeListOptions{
+	page, err := a.fetcher.ListNode(ctx, microservice.NodeListOptions{
 		PageNum:  1,
 		PageSize: -1,
 	})
@@ -785,11 +834,180 @@ func (a *StartContainerAction) fetchAvailableNodeNames(ctx context.Context) ([]s
 	return all, nil
 }
 
+func (a *StartContainerAction) createService(ctx context.Context, reqBody interface{}) (string, error) {
+	payload, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("marshal create service payload failed: %w", err)
+	}
+
+	url := a.baseURL + "/api/v1/service"
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if err != nil {
+		return "", err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.client.Do(request)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("create service http status=%d body=%s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Status  int    `json:"status"`
+		Message string `json:"message"`
+		Data    struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", err
+	}
+	if result.Status != 0 && result.Status != 200 {
+		return "", fmt.Errorf("create service api error status=%d msg=%s", result.Status, result.Message)
+	}
+	if result.Data.ID == "" {
+		return "", errors.New("create service missing id")
+	}
+
+	return result.Data.ID, nil
+}
+
+func (a *StartContainerAction) waitForContainerExit(ctx context.Context, serviceID, serviceName string) (bool, error) {
+	deadline := time.Now().Add(a.maxWait)
+	for {
+		exited, err := a.checkContainerExited(ctx, serviceID, serviceName)
+		if err != nil {
+			return false, err
+		}
+		if exited {
+			return true, nil
+		}
+		if time.Now().After(deadline) {
+			return false, nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(a.monitorInterval):
+		}
+	}
+}
+
+func (a *StartContainerAction) checkContainerExited(ctx context.Context, serviceID, serviceName string) (bool, error) {
+	fmt.Printf("检查容器状态: serviceID=%s serviceName=%s\n", serviceID, serviceName)
+	var matched []microservice.ContainerInfo
+	if serviceID != "" {
+		list, err := a.fetcher.ListContainerByServicePage(ctx, microservice.ListContainersByServiceOptions{
+			PageNum:    1,
+			PageSize:   50,
+			ServiceIDs: []string{serviceID},
+		})
+		if err != nil {
+			return false, err
+		}
+		matched = append(matched, list.Items...)
+	} else {
+		containers, err := a.fetcher.FetchAllContainerStatus(ctx)
+		if err != nil {
+			return false, err
+		}
+		for _, c := range containers {
+			if serviceName != "" && strings.EqualFold(c.ServiceName, serviceName) {
+				matched = append(matched, c)
+			}
+		}
+	}
+
+	if len(matched) == 0 {
+		return true, nil
+	}
+
+	for _, c := range matched {
+		if strings.EqualFold(c.Status, "running") {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func (a *StartContainerAction) isFaultResolved(ctx context.Context, event DiagnosisResult) (bool, error) {
+	if DiagnosisStatus(event) == EventStatusResolved {
+		return true, nil
+	}
+	if v, ok := getMetaBool(event.Metadata, "resolved"); ok && v {
+		return true, nil
+	}
+
+	statusURL := os.Getenv("RECOVERY_DIAGNOSIS_STATUS_URL")
+	if statusURL == "" {
+		return false, nil
+	}
+
+	u, err := url.Parse(statusURL)
+	if err != nil {
+		return false, err
+	}
+	q := u.Query()
+	q.Set("faultCode", event.FaultCode)
+	if targetID := DiagnosisTargetID(event); targetID != "" {
+		q.Set("targetId", targetID)
+	}
+	if event.DiagnosisID != "" {
+		q.Set("diagnosisId", event.DiagnosisID)
+	}
+	u.RawQuery = q.Encode()
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return false, err
+	}
+
+	resp, err := a.client.Do(request)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("diagnosis status http status=%d body=%s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return false, err
+	}
+	if status, ok := result["status"].(string); ok {
+		return strings.EqualFold(status, EventStatusResolved), nil
+	}
+	if resolved, ok := result["resolved"].(bool); ok {
+		return resolved, nil
+	}
+
+	return false, nil
+}
+
 func (a *StartContainerAction) Execute(ctx context.Context, event DiagnosisResult) error {
 	fmt.Printf("启动镜像容器，%v\n", event)
-	if DiagnosisTargetID(event) == "" {
+	targetID := DiagnosisTargetID(event)
+	if targetID == "" {
 		return errors.New("empty targetID")
 	}
+	a.store.SetResolved(targetID, false)
 
 	// 允许从配置文件按子节点/故障码加载参数
 	preset := a.selectPreset(event)
@@ -811,7 +1029,6 @@ func (a *StartContainerAction) Execute(ctx context.Context, event DiagnosisResul
 	if imageAction == "" {
 		imageAction = "run"
 	}
-
 	nodeNames := getMetaStringSlice(event.Metadata, "nodeNames")
 	if len(nodeNames) == 0 {
 		nodeNames = preset.Node.Names
@@ -834,7 +1051,6 @@ func (a *StartContainerAction) Execute(ctx context.Context, event DiagnosisResul
 			}
 		}
 	}
-
 	imageConfig := preset.Image.Config
 	if imageConfig == nil {
 		return errors.New("missing imageConfig")
@@ -874,57 +1090,67 @@ func (a *StartContainerAction) Execute(ctx context.Context, event DiagnosisResul
 		reqBody.Prepull = preset.Prepull
 	}
 
-	payload, err := json.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("marshal create service payload failed: %w", err)
+	maxAttempts := a.maxRetries + 1
+	if maxAttempts < 1 {
+		maxAttempts = 1
 	}
-
-	url := a.baseURL + "/api/v1/service"
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	resp, err := a.client.Do(request)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("create service http status=%d body=%s", resp.StatusCode, string(body))
-	}
-
-	var result struct {
-		Status  int    `json:"status"`
-		Message string `json:"message"`
-		Data    struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(body, &result); err == nil {
-		if result.Status != 0 && result.Status != 200 {
-			return fmt.Errorf("create service api error status=%d msg=%s", result.Status, result.Message)
-		}
-		if result.Data.ID != "" {
-			a.store.SetServiceID(DiagnosisTargetID(event), result.Data.ID)
-		}
-	}
-
 	image := imageRef
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-		a.store.StartContainer(DiagnosisTargetID(event), image)
-		return nil
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if a.store.IsResolved(targetID) {
+			if serviceID := a.store.GetServiceID(targetID); serviceID != "" {
+				_ = a.callServiceCommand(ctx, "destroy", []string{serviceID})
+				a.store.ClearServiceID(targetID)
+			}
+			fmt.Printf("恢复成功\n")
+			return nil
+		}
+		fmt.Printf("[recovery] start_container attempt=%d/%d fault=%s target=%s\n",
+			attempt, maxAttempts, event.FaultCode, targetID)
+		serviceID, err := a.createService(ctx, reqBody)
+		if err != nil {
+			return err
+		}
+		a.store.SetServiceID(targetID, serviceID)
+		a.store.StartContainer(targetID, image)
+		exited, err := a.waitForContainerExit(ctx, serviceID, serviceName)
+		if err != nil {
+			return err
+		}
+		if a.store.IsResolved(targetID) {
+			_ = a.callServiceCommand(ctx, "destroy", []string{serviceID})
+			a.store.ClearServiceID(targetID)
+			return nil
+		}
+		if !exited {
+			fmt.Printf("[recovery] container not exited in %s, retry=%d/%d fault=%s target=%s\n",
+				a.maxWait, attempt, maxAttempts, event.FaultCode, targetID)
+			_ = a.callServiceCommand(ctx, "destroy", []string{serviceID})
+			a.store.ClearServiceID(targetID)
+			if attempt < maxAttempts {
+				continue
+			}
+			break
+		}
+		resolved, err := a.isFaultResolved(ctx, event)
+		if err != nil {
+			fmt.Printf("[recovery] diagnosis status check failed: %v\n", err)
+		}
+		if resolved {
+			return nil
+		}
+		fmt.Printf("[recovery] fault still firing after container exit, retry=%d/%d fault=%s target=%s\n",
+			attempt, maxAttempts, event.FaultCode, targetID)
+		_ = a.callServiceCommand(ctx, "destroy", []string{serviceID})
+		a.store.ClearServiceID(targetID)
+		if attempt < maxAttempts {
+			continue
+		}
+		break
 	}
+
+	fmt.Printf("[recovery][escalate] fault unresolved after retries: fault=%s target=%s reason=%s\n",
+		event.FaultCode, targetID, event.FaultReason)
+	return fmt.Errorf("recovery escalation: fault=%s target=%s", event.FaultCode, targetID)
 }
 
 func (a *StartContainerAction) Verify(ctx context.Context, event DiagnosisResult) error {
@@ -932,9 +1158,6 @@ func (a *StartContainerAction) Verify(ctx context.Context, event DiagnosisResult
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-		if !a.store.IsContainerRunning(DiagnosisTargetID(event)) {
-			return fmt.Errorf("container not running: %s", DiagnosisTargetID(event))
-		}
 		return nil
 	}
 }

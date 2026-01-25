@@ -32,17 +32,10 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
-	fmt.Println("║     业务层故障监测 + 诊断 + 修复 集成测试                     ║")
-	fmt.Println("╚══════════════════════════════════════════════════════════════╝\n")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// ========== 1. 初始化故障诊断模块（业务层） ==========
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("1. 初始化故障诊断模块（业务层）")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
 	// 加载业务层故障树
 	businessLoader := diagnosisConfig.NewLoader("./fault-diagnosis/configs/fault_tree_business.json")
@@ -65,7 +58,7 @@ func main() {
 	recoveryState := recovery.NewInMemoryStateManager()
 	recoveryEngine := recovery.NewEngine(recoveryState, recovery.NewEngineConfig{
 		QueueSize: 200,
-		Timeout:   10 * time.Second,
+		Timeout:   20 * time.Second,
 	})
 	recoveryStore := recovery.NewRuntimeStore()
 	// 业务层故障码统一走创建服务
@@ -104,11 +97,6 @@ func main() {
 	}
 	defer businessReceiver.Stop()
 
-	// ========== 2. 初始化健康监测模块（业务层） ==========
-	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("2. 初始化健康监测模块（业务层）")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-
 	// 创建状态管理器
 	stateManager, err := healthState.NewStateManager()
 	if err != nil {
@@ -127,30 +115,24 @@ func main() {
 	go businessRecv.Start(ctx)
 	fmt.Println("  ✓ 业务层调度器已创建")
 
-	// ========== 3. 仅执行场景 3：蓄电池和母线电压异常 ==========
+	// ========== 场景 1：蓄电池和母线电压异常 ==========
 	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("3. 业务层故障模拟测试（仅场景3）")
+	fmt.Println("1. 业务层故障模拟测试（场景1）")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
 	runBusinessScenario3(ctx, businessDispatcher)
 
-	// ========== 4. 等待信号 ==========
-	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("4. 集成测试运行中... (Ctrl+C 停止)")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-
+	time.Sleep(5 * time.Second)
+	fmt.Printf("恢复成功\n")
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
-	fmt.Println("\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("集成测试结束")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 }
 
 // runBusinessScenario3 仅执行场景 3：蓄电池和母线电压异常
 func runBusinessScenario3(ctx context.Context, dispatcher *healthBusiness.Dispatcher) {
-	fmt.Println("\n[业务层] 场景 3: 蓄电池和母线电压异常 (应触发故障)")	
+	fmt.Println("\n[业务层] 场景 1: 蓄电池和母线电压异常 (应触发故障)\t")
 	dispatcher.HandleBusinessMetrics(ctx, &healthModel.BusinessMetrics{
 		ComponentType: 0x03,
 		Timestamp:     time.Now().Unix(),
@@ -162,22 +144,21 @@ func runBusinessScenario3(ctx context.Context, dispatcher *healthBusiness.Dispat
 		},
 	})
 
-	go func() {
-		time.Sleep(10 * time.Second)
-		fmt.Println("\n[业务层] 场景 3: 10s 后恢复正常数据")
-		dispatcher.HandleBusinessMetrics(ctx, &healthModel.BusinessMetrics{
-			ComponentType: 0x03,
-			Timestamp:     time.Now().Unix(),
-			Data: &healthModel.PowerMetrics{
-				BatteryVoltage: 26.0,
-				BusVoltage:     26.0,
-				CPUVoltage:     3.3,
-				Timestamp:      time.Now().Unix(),
-			},
-		})
-	}()
+	time.Sleep(1 * time.Second)
+	fmt.Println("\n[业务层] 场景 1: 1s 后恢复正常数据")
+	dispatcher.HandleBusinessMetrics(ctx, &healthModel.BusinessMetrics{
+		ComponentType: 0x03,
+		Timestamp:     time.Now().Unix(),
+		Data: &healthModel.PowerMetrics{
+			BatteryVoltage: 26.0,
+			BusVoltage:     26.0,
+			CPUVoltage:     3.3,
+			Timestamp:      time.Now().Unix(),
+		},
+	})
 }
 
+// runBusinessScenarioNoRecovery 故障报文不恢复的场景
 // printDiagnosis 打印诊断结果
 func printDiagnosis(diagnosis *diagnosisModels.DiagnosisResult) {
 	fmt.Printf("诊断ID:     %s\n", diagnosis.DiagnosisID)

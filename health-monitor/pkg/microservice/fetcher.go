@@ -160,6 +160,64 @@ func (f *Fetcher) ListContainerByNodePage(ctx context.Context, opts ListContaine
     }
 }
 
+func (f *Fetcher) ListContainerByServicePage(ctx context.Context, opts ListContainersByServiceOptions) (*ContainerList, error) {
+	u, _ := url.Parse(f.http.BaseURL + "/api/v1/container/service")
+	q := u.Query()
+	q.Set("pageNum", fmt.Sprintf("%d", opts.PageNum))
+	q.Set("pageSize", fmt.Sprintf("%d", opts.PageSize))
+	for _, id := range opts.ServiceIDs {
+		if id == "" {
+			continue
+		}
+		q.Add("serviceIds[]", id)
+	}
+	if opts.Key != "" {
+		q.Set("key", opts.Key)
+	}
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := f.http.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var result struct {
+		Status  int         `json:"status"`
+		Message string      `json:"message"`
+		Data    []ContainerInfo `json:"list"`
+		PageNum  int         `json:"pageNum"`
+		PageSize int         `json:"pageSize"`
+		Total    int         `json:"total"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("json decode failed: %w", err)
+	}
+	if result.Status != 200 {
+		return nil, fmt.Errorf("API error (status=%d): %s", result.Status, result.Message)
+	}
+	var items []ContainerInfo
+	for _, item := range result.Data {
+		itemBytes, err := json.Marshal(item)
+		if err != nil {
+			continue
+		}
+		var info ContainerInfo
+		if err := json.Unmarshal(itemBytes, &info); err == nil {
+			items = append(items, info)
+		}
+	}
+	return &ContainerList{Items: items, Total: len(items), PageNum: opts.PageNum, PageSize: opts.PageSize}, nil
+}
+
 func (f *Fetcher) ListService(ctx context.Context, opts ListServicesOptions) (*ServiceList, error) {
 	u, _ := url.Parse(f.http.BaseURL + "/api/v1/service")
 	q := u.Query()
