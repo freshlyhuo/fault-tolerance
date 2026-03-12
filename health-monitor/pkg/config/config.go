@@ -1,3 +1,5 @@
+package config
+
 // UNUSED: 当前未被 health-monitor 模块的可执行程序依赖（截至 2026-01-22），仅作为配置设计草稿/占位说明。
 /* 包括：
 

@@ -1,0 +1,104 @@
+{
+  "power": {
+    "PowerModule12V": {
+      "value": null,
+      "min": null,
+      "max": null,
+      "unit": "mV"
+    },
+    "BatteryVoltage": {
+      "value": null,
+      "min": null,
+      "max": null,
+      "unit": "mV"
+    },
+    "BusVoltage": {
+      "value": null,
+      "min": null,
+      "max": null,
+      "unit": "mV"
+    },
+    "CPUVoltage": {
+      "value": null,
+      "min": null,
+      "max": null,
+      "unit": "mV"
+    },
+    "ThermalRefVoltage": {
+      "value": null,
+      "min": null,
+      "max": null,
+      "unit": "mV"
+    },
+    "Bracket12VCurrent": {
+      "value": null,
+      "min": null,
+      "max": null,
+      "unit": "mA"
+    },
+    "LoadCurrent": {
+      "value": null,
+      "min": null,
+      "max": null,
+      "unit": "mA"
+    }
+  },
+  "thermal": {
+    "ThermalTemps": [
+      { "index": 1, "value": null, "min": null, "max": null, "unit": "°C" },
+      { "index": 2, "value": null, "min": null, "max": null, "unit": "°C" },
+      { "index": 3, "value": null, "min": null, "max": null, "unit": "°C" },
+      { "index": 4, "value": null, "min": null, "max": null, "unit": "°C" },
+      { "index": 5, "value": null, "min": null, "max": null, "unit": "°C" },
+      { "index": 6, "value": null, "min": null, "max": null, "unit": "°C" },
+      { "index": 7, "value": null, "min": null, "max": null, "unit": "°C" },
+      { "index": 8, "value": null, "min": null, "max": null, "unit": "°C" },
+      { "index": 9, "value": null, "min": null, "max": null, "unit": "°C" },
+      { "index": 10, "value": null, "min": null, "max": null, "unit": "°C" }
+    ],
+    "BatteryTemp1": { "value": null, "min": null, "max": null, "unit": "°C" },
+    "BatteryTemp2": { "value": null, "min": null, "max": null, "unit": "°C" },
+    "PlatformThermalTemp": { "value": null, "min": null, "max": null, "unit": "°C" },
+    "BatteryThermalTemp": { "value": null, "min": null, "max": null, "unit": "°C" },
+    "TankThermalTemp": { "value": null, "min": null, "max": null, "unit": "°C" },
+    "HeaterSwitchState": {
+      "PlatformHeater": null,
+      "BatteryHeater": null,
+      "TankHeater": null
+    }
+  },
+  "comm": {
+    "SNR": { "value": null },
+    "ReceiveRSSI": { "value": null },
+    "CANStatus": { "value": null },
+    "SerialStatus": { "value": null },
+    "AirToAirStatus": { "value": null },
+    "ReceiveCmdCount": { "value": null },
+    "ReceiveCTACount": { "value": null },
+    "SwitchState": { "value": null },
+    "TelemetryEncryptStatus": { "value": null },
+    "TelecontrolEncryptStatus": { "value": null }
+  },
+  "actuator": {
+    "WheelSpeed": {
+      "X": { "value": null, "unit": "rpm" },
+      "Y": { "value": null, "unit": "rpm" },
+      "Z": { "value": null, "unit": "rpm" }
+    },
+    "wheel_speed_tolerance": null
+  },
+  "node": {
+    "cpu_usage_max": 85.0,
+    "memory_usage_max": 90.0,
+    "disk_usage_max": 90.0
+  },
+  "container": {
+    "cpu_usage_max": 65.0,
+    "memory_usage_max": 80.0,
+    "disk_usage_max": 65.0
+  },
+  "service": {
+    "require_healthy": true,
+    "instance_online_min": 1
+  }
+}

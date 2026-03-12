@@ -21,7 +21,7 @@ type Dispatcher struct {
 // NewDispatcher 创建新的分发器
 func NewDispatcher(stateManager *state.StateManager) *Dispatcher {
 	return &Dispatcher{
-		generator:    alert.NewGeneratorWithStateManager(stateManager), // 使用带状态管理的生成器
+		generator:    alert.NewGenerator(stateManager), // 使用带状态管理的生成器
 		stateManager: stateManager,
 	}
 }
@@ -53,15 +53,4 @@ func (d *Dispatcher) HandleBusinessMetrics(ctx context.Context, bm *model.Busine
 	// Generator会调用threshold检查，生成告警事件并直接输出
 	d.generator.ProcessBusinessMetrics(ctx, bm)
 	
-	// 3. 健康分计算
-	// TODO: 实现健康分计算逻辑
-	
-	// 4. 写入 DB / MQ
-	// TODO: 持久化指标数据
-	
-	// 5. 推送到可视化平台
-	// TODO: 实现可视化推送
-	
-	// 6. 与微服务层指标融合
-	// TODO: 实现指标融合逻辑
 }

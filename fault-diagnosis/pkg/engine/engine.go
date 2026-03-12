@@ -207,7 +207,6 @@ func (e *DiagnosisEngine) ProcessAlert(alert *models.AlertEvent) {
 		zap.String("alert_id", alert.AlertID),
 		zap.String("type", alert.Type),
 		zap.String("status", string(alert.Status)),
-		zap.String("severity", alert.Severity),
 		zap.Bool("is_resolved", isResolved))
 	}
 

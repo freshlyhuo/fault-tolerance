@@ -19,7 +19,6 @@ import (
 func main() {
 	// 命令行参数
 	ecsmURL := flag.String("ecsm-url", "http://192.168.31.129:3001", "容器平台 API 地址")
-	etcdEndpoints := flag.String("etcd", "", "etcd 集群地址，例如 localhost:2379（可选，留空则纯内存模式）")
 	interval := flag.Int("interval", 5, "监控采集间隔(秒)")
 	testBusiness := flag.Bool("test-business", false, "测试模式：模拟业务层报文")
 	testInterval := flag.Int("test-interval", 5, "测试模式下报文发送间隔(秒)")
@@ -27,16 +26,13 @@ func main() {
 
 	fmt.Printf("========== 健康监控系统启动 ==========\n")
 	fmt.Printf("容器平台地址: %s\n", *ecsmURL)
-	if *etcdEndpoints != "" {
-		fmt.Printf("etcd 地址: %s\n", *etcdEndpoints)
-	} else {
-		fmt.Println("存储模式: 纯内存（不持久化）")
-	}
+	fmt.Println("存储模式: 纯内存缓存")
 	fmt.Printf("微服务层采集间隔: %d秒\n", *interval)
 	if *testBusiness {
 		fmt.Printf("业务层测试模式: 已启用（报文间隔: %d秒）\n", *testInterval)
 	}
-	fmt.Println("======================================\n")
+	fmt.Println("======================================")
+	fmt.Println()
 
 	// 创建 context，用于优雅关闭
 	ctx, cancel := context.WithCancel(context.Background())
@@ -44,7 +40,7 @@ func main() {
 
 	// 1. 初始化状态管理器
 	fmt.Println("初始化状态管理器...")
-	sm, err := state.NewStateManager(*etcdEndpoints)
+	sm, err := state.NewStateManager()
 	if err != nil {
 		fmt.Printf("❌ 初始化状态管理器失败: %v\n", err)
 		os.Exit(1)
@@ -69,11 +65,13 @@ func main() {
 	microDispatcher := microservice.NewDispatcher(fetcher, sm)
 
 	// 5. 启动微服务层定期采集
-	fmt.Println("启动微服务层定期采集...\n")
+	fmt.Println("启动微服务层定期采集...")
+	fmt.Println()
 	go microServiceMonitorLoop(ctx, microDispatcher, time.Duration(*interval)*time.Second)
 
 	// 6. 监听系统信号，优雅退出
-	fmt.Println("✅ 系统运行中，按 Ctrl+C 停止\n")
+	fmt.Println("✅ 系统运行中，按 Ctrl+C 停止")
+	fmt.Println()
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 

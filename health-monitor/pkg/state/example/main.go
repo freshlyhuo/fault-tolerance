@@ -1,3 +1,6 @@
+//go:build ignore
+// +build ignore
+
 // UNUSED: 示例程序，当前未被 health-monitor 模块的可执行程序依赖（截至 2026-01-22）。
 package main
 

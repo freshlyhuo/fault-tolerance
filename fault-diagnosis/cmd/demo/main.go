@@ -90,7 +90,6 @@ func testBusinessLayer(logger *zap.Logger) {
 	alert1 := &models.AlertEvent{
 		AlertID:     "BATTERY_VOLTAGE_ALERT",
 		Type:        "voltage_abnormal",
-		Severity:    "warning",
 		Source:      "battery_monitor",
 		Message:     "蓄电池电压异常: 23.5V (正常范围: 24V-28V)",
 		Timestamp:   time.Now().Unix(),
@@ -115,7 +114,6 @@ func testBusinessLayer(logger *zap.Logger) {
 	alert2 := &models.AlertEvent{
 		AlertID:     "BUS_VOLTAGE_ALERT",
 		Type:        "voltage_abnormal",
-		Severity:    "warning",
 		Source:      "bus_monitor",
 		Message:     "母线电压异常: 26.2V (正常范围: 24V-28V)",
 		Timestamp:   time.Now().Unix(),
@@ -147,7 +145,6 @@ func testBusinessLayer(logger *zap.Logger) {
 	alert3 := &models.AlertEvent{
 		AlertID:     "CPU_VOLTAGE_ALERT",
 		Type:        "voltage_abnormal",
-		Severity:    "critical",
 		Source:      "cpu_board_monitor",
 		Message:     "CPU板电压异常: TMEZD01011 = 3.8V (正常范围: 3.1V-3.5V)",
 		Timestamp:   time.Now().Unix(),
@@ -226,7 +223,6 @@ func testMicroserviceLayer(logger *zap.Logger) {
 	alertCPU := &models.AlertEvent{
 		AlertID:     "CONTAINER_CPU_HIGH",
 		Type:        "cpu_high",
-		Severity:    "critical",
 		Source:      "user-service-container-1",
 		Message:     "容器CPU使用率过高: 95%",
 		Timestamp:   time.Now().Unix(),
@@ -252,7 +248,6 @@ func testMicroserviceLayer(logger *zap.Logger) {
 	alertFluctuation := &models.AlertEvent{
 		AlertID:     "CONTAINER_CPU_FLUCTUATION",
 		Type:        "cpu_fluctuation",
-		Severity:    "warning",
 		Source:      "order-service-container-1",
 		Message:     "CPU使用率波动异常: 标准差 = 35%",
 		Timestamp:   time.Now().Unix(),
@@ -283,7 +278,6 @@ func testMicroserviceLayer(logger *zap.Logger) {
 	alertMemory := &models.AlertEvent{
 		AlertID:     "CONTAINER_MEMORY_HIGH",
 		Type:        "memory_high",
-		Severity:    "critical",
 		Source:      "payment-service-container-1",
 		Message:     "容器内存使用率过高: 92%",
 		Timestamp:   time.Now().Unix(),

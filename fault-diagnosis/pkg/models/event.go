@@ -13,7 +13,6 @@ type AlertEvent struct {
 	AlertID       string                 // 告警唯一标识
 	Type          string                 // 告警类型
 	Status        AlertStatus            // 告警状态 (firing/resolved)
-	Severity      string                 // 严重程度 (info/warning/critical)
 	Source        string                 // 告警源（组件名称）
 	Message       string                 // 告警消息
 	Timestamp     int64                  // 时间戳

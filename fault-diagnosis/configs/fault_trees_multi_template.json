@@ -1,0 +1,104 @@
+{
+  "fault_trees": [
+    {
+      "fault_tree_id": "TREE-001",
+      "description": "cjb加电异常故障",
+      "top_events": [
+        {
+          "event_id": "T1-TOP-001",
+          "name": "CJB-RG-ZD-1",
+          "description": "cjb加电异常故障",
+          "fault_code": "TODO: 故障码",
+          "gate_type": "OR",
+          "children": ["T1-MID-001", "T1-MID-002"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T1-MID-001",
+          "name": "TODO: 中间事件名称1",
+          "description": "TODO: 中间事件描述1",
+          "gate_type": "AND",
+          "children": ["T1-EVT-001", "T1-EVT-002"]
+        },
+        {
+          "event_id": "T1-MID-002",
+          "name": "TODO: 中间事件名称2",
+          "description": "TODO: 中间事件描述2",
+          "gate_type": "BASIC",
+          "children": ["T1-EVT-003"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T1-EVT-001",
+          "name": "TODO: 基本事件1",
+          "description": "TODO: 基本事件1描述",
+          "alert_id": "TODO_ALERT_1"
+        },
+        {
+          "event_id": "T1-EVT-002",
+          "name": "TODO: 基本事件2",
+          "description": "TODO: 基本事件2描述",
+          "alert_id": "TODO_ALERT_2"
+        },
+        {
+          "event_id": "T1-EVT-003",
+          "name": "TODO: 基本事件3",
+          "description": "TODO: 基本事件3描述",
+          "alert_id": "TODO_ALERT_3"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-002",
+      "description": "TODO: 故障树2描述",
+      "top_events": [
+        {
+          "event_id": "T2-TOP-001",
+          "name": "TODO: 顶层事件名称",
+          "description": "TODO: 顶层事件描述",
+          "fault_code": "TODO: 故障码",
+          "gate_type": "AND",
+          "children": ["T2-MID-001", "NOT-T2-MID-002"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T2-MID-001",
+          "name": "TODO: 中间事件名称1",
+          "description": "TODO: 中间事件描述1",
+          "gate_type": "OR",
+          "children": ["T2-EVT-001", "T2-EVT-002"]
+        },
+        {
+          "event_id": "T2-MID-002",
+          "name": "TODO: 中间事件名称2",
+          "description": "TODO: 中间事件描述2",
+          "gate_type": "BASIC",
+          "children": ["T2-EVT-003"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T2-EVT-001",
+          "name": "TODO: 基本事件1",
+          "description": "TODO: 基本事件1描述",
+          "alert_id": "TODO_ALERT_101"
+        },
+        {
+          "event_id": "T2-EVT-002",
+          "name": "TODO: 基本事件2",
+          "description": "TODO: 基本事件2描述",
+          "alert_id": "TODO_ALERT_102"
+        },
+        {
+          "event_id": "T2-EVT-003",
+          "name": "TODO: 基本事件3",
+          "description": "TODO: 基本事件3描述",
+          "alert_id": "TODO_ALERT_103"
+        }
+      ]
+    }
+  ]
+}

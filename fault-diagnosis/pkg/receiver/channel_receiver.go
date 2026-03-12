@@ -103,7 +103,6 @@ func (r *ChannelReceiver) consume() {
 func (r *ChannelReceiver) handleAlert(alert *models.AlertEvent) {
 	r.logger.Debug("接收到告警",
 		zap.String("alert_id", alert.AlertID),
-		zap.String("severity", alert.Severity),
 	)
 
 	if r.alertHandler != nil {

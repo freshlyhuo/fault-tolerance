@@ -35,7 +35,8 @@ func main() {
 
 	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
 	fmt.Println("║     健康监测 + 故障诊断 集成测试                              ║")
-	fmt.Println("╚══════════════════════════════════════════════════════════════╝\n")
+	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
+	fmt.Println()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -43,7 +44,8 @@ func main() {
 	// ========== 1. 初始化故障诊断模块 ==========
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("1. 初始化故障诊断模块")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
 
 	// 加载业务层故障树
 	businessLoader := diagnosisConfig.NewLoader("./fault-diagnosis/configs/fault_tree_business.json")
@@ -135,7 +137,8 @@ func main() {
 	// ========== 2. 初始化健康监测模块 ==========
 	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("2. 初始化健康监测模块")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
 
 	// 创建状态管理器
 	stateManager, err := healthState.NewStateManager()
@@ -165,7 +168,8 @@ func main() {
 	// ========== 3. 启动业务层模拟测试 ==========
 	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("3. 业务层故障模拟测试")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
 
 	// 启动业务层模拟协程
 	go runBusinessSimulation(ctx, businessDispatcher, businessWrapper)
@@ -173,7 +177,8 @@ func main() {
 	// ========== 4. 启动微服务层监测 ==========
 	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("4. 微服务层 ECSM 监测")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
 
 	// 启动微服务层监测协程
 	go runMicroserviceMonitoring(ctx, microserviceDispatcher, microserviceWrapper)
@@ -181,7 +186,8 @@ func main() {
 	// ========== 5. 等待信号 ==========
 	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("5. 集成测试运行中... (Ctrl+C 停止)")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -194,7 +200,8 @@ func main() {
 
 // runBusinessSimulation 运行业务层模拟
 func runBusinessSimulation(ctx context.Context, dispatcher *healthBusiness.Dispatcher, diagnosisWrapper *diagnosisReceiver.ReceiverWrapper) {
-	fmt.Println("  [业务层] 开始模拟测试...\n")
+	fmt.Println("  [业务层] 开始模拟测试...")
+	fmt.Println()
 
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
@@ -271,7 +278,8 @@ func runBusinessSimulation(ctx context.Context, dispatcher *healthBusiness.Dispa
 
 // runMicroserviceMonitoring 运行微服务层监测
 func runMicroserviceMonitoring(ctx context.Context, dispatcher *healthMicroservice.Dispatcher, diagnosisWrapper *diagnosisReceiver.ReceiverWrapper) {
-	fmt.Println("  [微服务层] 开始 ECSM 监测...\n")
+	fmt.Println("  [微服务层] 开始 ECSM 监测...")
+	fmt.Println()
 
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()

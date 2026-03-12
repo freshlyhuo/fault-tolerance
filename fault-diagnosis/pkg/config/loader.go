@@ -13,6 +13,12 @@ type Loader struct {
 	configPath string
 }
 
+// FaultTreeCollection 多故障树配置（对象包装格式）
+// 示例：{"fault_trees": [{...}, {...}]}
+type FaultTreeCollection struct {
+	FaultTrees []models.FaultTree `json:"fault_trees"`
+}
+
 // NewLoader 创建配置加载器
 func NewLoader(configPath string) *Loader {
 	return &Loader{
@@ -22,13 +28,59 @@ func NewLoader(configPath string) *Loader {
 
 // LoadFaultTree 加载故障树配置
 func (l *Loader) LoadFaultTree() (*models.FaultTree, error) {
+	faultTrees, err := l.LoadFaultTrees()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(faultTrees) != 1 {
+		return nil, fmt.Errorf("当前入口仅支持单棵故障树，配置文件中检测到 %d 棵；请改用 LoadFaultTrees 或拆分配置文件", len(faultTrees))
+	}
+
+	return faultTrees[0], nil
+}
+
+// LoadFaultTrees 加载一个或多个故障树配置
+// 支持三种JSON格式：
+// 1) 单树对象：{...}
+// 2) 数组：[{...}, {...}]
+// 3) 包装对象：{"fault_trees":[{...},{...}]}
+func (l *Loader) LoadFaultTrees() ([]*models.FaultTree, error) {
 	// 读取配置文件
 	data, err := os.ReadFile(l.configPath)
 	if err != nil {
 		return nil, fmt.Errorf("读取配置文件失败: %w", err)
 	}
 
-	// 解析JSON
+	// 先尝试包装对象格式
+	var collection FaultTreeCollection
+	if err := json.Unmarshal(data, &collection); err == nil && len(collection.FaultTrees) > 0 {
+		result := make([]*models.FaultTree, 0, len(collection.FaultTrees))
+		for i := range collection.FaultTrees {
+			ft := &collection.FaultTrees[i]
+			if err := l.validateFaultTree(ft); err != nil {
+				return nil, fmt.Errorf("第 %d 棵故障树配置验证失败: %w", i+1, err)
+			}
+			result = append(result, ft)
+		}
+		return result, nil
+	}
+
+	// 再尝试数组格式
+	var faultTreeList []models.FaultTree
+	if err := json.Unmarshal(data, &faultTreeList); err == nil && len(faultTreeList) > 0 {
+		result := make([]*models.FaultTree, 0, len(faultTreeList))
+		for i := range faultTreeList {
+			ft := &faultTreeList[i]
+			if err := l.validateFaultTree(ft); err != nil {
+				return nil, fmt.Errorf("第 %d 棵故障树配置验证失败: %w", i+1, err)
+			}
+			result = append(result, ft)
+		}
+		return result, nil
+	}
+
+	// 最后尝试单树对象格式
 	var faultTree models.FaultTree
 	if err := json.Unmarshal(data, &faultTree); err != nil {
 		return nil, fmt.Errorf("解析配置文件失败: %w", err)
@@ -39,7 +91,7 @@ func (l *Loader) LoadFaultTree() (*models.FaultTree, error) {
 		return nil, fmt.Errorf("配置验证失败: %w", err)
 	}
 
-	return &faultTree, nil
+	return []*models.FaultTree{&faultTree}, nil
 }
 
 // validateFaultTree 验证故障树配置

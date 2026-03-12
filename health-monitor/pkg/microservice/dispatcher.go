@@ -21,7 +21,7 @@ func NewDispatcher(fetcher *Fetcher, stateManager *state.StateManager) *Dispatch
 	return &Dispatcher{
 		fetcher:      fetcher,
 		extractor:    NewExtractor(),
-		generator:    alert.NewGeneratorWithStateManager(stateManager), // 使用带状态管理的生成器
+		generator:    alert.NewGenerator(stateManager), // 使用带状态管理的生成器
 		stateManager: stateManager,
 	}
 }

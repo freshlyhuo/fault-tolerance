@@ -1,94 +1,184 @@
-/* 静态阈值判断，例如：
-
-CPU > 85%
-
-电压 < 3.1V
-
-业务延迟 > 5000ms
-
-返回 AlertEvent(nil 或对象)。 */
+/*
+阈值检查统一实现：
+1. 传入 StateManager 时，按状态变化输出 firing/resolved。
+2. 不传 StateManager（启动初期/无状态模式）时，只输出 firing。
+*/
 package alert
 
 import (
 	"fmt"
-	"health-monitor/pkg/models"
 	"time"
+
+	"health-monitor/pkg/config"
+	"health-monitor/pkg/models"
+	"health-monitor/pkg/state"
 )
 
-// CheckPowerThresholds 检查供电服务阈值
+func valueOrDefault(v *float64, def float64) float64 {
+	if v == nil {
+		return def
+	}
+	return *v
+}
+
+func intOrDefault(v *int, def int) int {
+	if v == nil {
+		return def
+	}
+	return *v
+}
+
+func rangeOrDefault(t config.MetricThreshold, defMin, defMax float64) (float64, float64) {
+	return valueOrDefault(t.Min, defMin), valueOrDefault(t.Max, defMax)
+}
+
+func shouldSendByState(sm *state.StateManager, alertID, source string, isFiring, bySource bool) (bool, bool) {
+	if sm == nil {
+		if isFiring {
+			return true, true
+		}
+		return false, false
+	}
+
+	if bySource {
+		return sm.CheckAndUpdateAlertStateWithSource(alertID, source, isFiring)
+	}
+	return sm.CheckAndUpdateAlertState(alertID, isFiring)
+}
+
+func appendAlert(
+	alerts []*model.AlertEvent,
+	sm *state.StateManager,
+	alertID, source string,
+	isFiring, bySource bool,
+	alertType, faultCode, firingMsg, resolvedMsg string,
+	metricValue float64,
+	metadata map[string]interface{},
+	timestamp int64,
+) []*model.AlertEvent {
+	shouldSend, firing := shouldSendByState(sm, alertID, source, isFiring, bySource)
+	if !shouldSend {
+		return alerts
+	}
+
+	status := model.AlertStatusResolved
+	message := resolvedMsg
+	if firing {
+		status = model.AlertStatusFiring
+		message = firingMsg
+	}
+
+	return append(alerts, &model.AlertEvent{
+		AlertID:     alertID,
+		Type:        alertType,
+		Status:      status,
+		Source:      source,
+		Message:     message,
+		Timestamp:   timestamp,
+		FaultCode:   faultCode,
+		MetricValue: metricValue,
+		Metadata:    metadata,
+	})
+}
+
+func nodeCPUUsage(metrics *model.NodeMetrics) (float64, bool) {
+	switch v := metrics.CPUUsage.(type) {
+	case float64:
+		return v, true
+	case model.CPUUsage:
+		return v.Total, true
+	default:
+		return 0, false
+	}
+}
+
+func containerMetadata(metrics *model.ContainerMetrics) map[string]interface{} {
+	if metrics.ServiceName == "" && metrics.ServiceID == "" {
+		return nil
+	}
+	md := map[string]interface{}{}
+	if metrics.ServiceName != "" {
+		md["serviceName"] = metrics.ServiceName
+	}
+	if metrics.ServiceID != "" {
+		md["serviceId"] = metrics.ServiceID
+	}
+	return md
+}
+
+// CheckPowerThresholds 检查供电服务阈值（无状态入口）
 func CheckPowerThresholds(metrics *model.PowerMetrics) []*model.AlertEvent {
+	return CheckPowerThresholdsWithState(metrics, nil)
+}
+
+// CheckPowerThresholdsWithState 检查供电服务阈值（支持恢复告警）
+func CheckPowerThresholdsWithState(metrics *model.PowerMetrics, sm *state.StateManager) []*model.AlertEvent {
+	if metrics == nil {
+		return nil
+	}
+
+	tc := config.GetThresholdConfig()
+	now := time.Now().Unix()
 	var alerts []*model.AlertEvent
-	
-	// 12V功率模块电压检查 (正常约13V)
-	if metrics.PowerModule12V < 12.5 || metrics.PowerModule12V > 13.5 {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("PWR-12V-%d", time.Now().Unix()),
-			Type:        "VoltageAbnormal",
-			Severity:    model.SeverityWarning,
-			Source:      "PowerModule12V",
-			Message:     fmt.Sprintf("12V功率模块电压异常: %.2fV (正常约13V)", metrics.PowerModule12V),
-			Timestamp:   metrics.Timestamp,
-			FaultCode:   "CJB-RG-ZD-1",
-			MetricValue: metrics.PowerModule12V,
-		})
-	}
-	
-	// 蓄电池电压检查 (正常[21, 29.4]V)
-	if metrics.BatteryVoltage < 21.0 || metrics.BatteryVoltage > 29.4 {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("PWR-BAT-%d", time.Now().Unix()),
-			Type:        "VoltageAbnormal",
-			Severity:    model.SeverityCritical,
-			Source:      "BatteryVoltage",
-			Message:     fmt.Sprintf("蓄电池电压异常: %.2fV (正常[21,29.4]V)", metrics.BatteryVoltage),
-			Timestamp:   metrics.Timestamp,
-			FaultCode:   "CJB-RG-ZD-3",
-			MetricValue: metrics.BatteryVoltage,
-		})
-	}
-	
-	// CPU板电压检查 (正常[3.1, 3.5]V)
-	if metrics.CPUVoltage < 3.1 || metrics.CPUVoltage > 3.5 {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("PWR-CPU-%d", time.Now().Unix()),
-			Type:        "VoltageAbnormal",
-			Severity:    model.SeverityCritical,
-			Source:      "CPUVoltage",
-			Message:     fmt.Sprintf("CPU板电压异常: %.2fV (正常[3.1,3.5]V)", metrics.CPUVoltage),
-			Timestamp:   metrics.Timestamp,
-			FaultCode:   "CJB-RG-ZD-3",
-			MetricValue: metrics.CPUVoltage,
-		})
-	}
-	
-	// 负载电流检查 (正常[0.5, 5]A)
-	if metrics.LoadCurrent < 0.5 || metrics.LoadCurrent > 5.0 {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("PWR-LOAD-%d", time.Now().Unix()),
-			Type:        "CurrentAbnormal",
-			Severity:    model.SeverityWarning,
-			Source:      "LoadCurrent",
-			Message:     fmt.Sprintf("负载电流异常: %.2fA (正常[0.5,5]A)", metrics.LoadCurrent),
-			Timestamp:   metrics.Timestamp,
-			FaultCode:   "CJB-O2-CS-1",
-			MetricValue: metrics.LoadCurrent,
-		})
-	}
-	
+	p12Min, p12Max := rangeOrDefault(tc.Power.PowerModule12V, 12.5, 13.5)
+	batMin, batMax := rangeOrDefault(tc.Power.BatteryVoltage, 21.0, 29.4)
+	cpuMin, cpuMax := rangeOrDefault(tc.Power.CPUVoltage, 3.1, 3.5)
+	loadMin, loadMax := rangeOrDefault(tc.Power.LoadCurrent, 0.5, 5.0)
+
+	isFiring := metrics.PowerModule12V < p12Min || metrics.PowerModule12V > p12Max
+	alerts = appendAlert(alerts, sm,
+		"POWER_12V_ALERT", "PowerModule12V", isFiring, false,
+		"voltage_abnormal", "CJB-RG-ZD-1",
+		fmt.Sprintf("12V功率模块电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.PowerModule12V, p12Min, p12Max),
+		fmt.Sprintf("12V功率模块电压已恢复正常: %.2fV", metrics.PowerModule12V),
+		metrics.PowerModule12V, nil, now)
+
+	isFiring = metrics.BatteryVoltage < batMin || metrics.BatteryVoltage > batMax
+	alerts = appendAlert(alerts, sm,
+		"BATTERY_VOLTAGE_ALERT", "BatteryVoltage", isFiring, false,
+		"voltage_abnormal", "CJB-RG-ZD-3",
+		fmt.Sprintf("蓄电池电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.BatteryVoltage, batMin, batMax),
+		fmt.Sprintf("蓄电池电压已恢复正常: %.2fV", metrics.BatteryVoltage),
+		metrics.BatteryVoltage, nil, now)
+
+	isFiring = metrics.CPUVoltage < cpuMin || metrics.CPUVoltage > cpuMax
+	alerts = appendAlert(alerts, sm,
+		"CPU_VOLTAGE_ALERT", "CPUVoltage", isFiring, false,
+		"voltage_abnormal", "CJB-RG-ZD-3",
+		fmt.Sprintf("CPU板电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.CPUVoltage, cpuMin, cpuMax),
+		fmt.Sprintf("CPU板电压已恢复正常: %.2fV", metrics.CPUVoltage),
+		metrics.CPUVoltage, nil, now)
+
+	isFiring = metrics.LoadCurrent < loadMin || metrics.LoadCurrent > loadMax
+	alerts = appendAlert(alerts, sm,
+		"LOAD_CURRENT_ALERT", "LoadCurrent", isFiring, false,
+		"current_abnormal", "CJB-O2-CS-1",
+		fmt.Sprintf("负载电流异常: %.2fA (正常[%.2f,%.2f]A)", metrics.LoadCurrent, loadMin, loadMax),
+		fmt.Sprintf("负载电流已恢复正常: %.2fA", metrics.LoadCurrent),
+		metrics.LoadCurrent, nil, now)
+
 	return alerts
 }
 
-// CheckThermalThresholds 检查热控服务阈值
+// CheckThermalThresholds 检查热控服务阈值（当前仅触发告警）
 func CheckThermalThresholds(metrics *model.ThermalMetrics) []*model.AlertEvent {
+	if metrics == nil {
+		return nil
+	}
+	tc := config.GetThresholdConfig()
 	var alerts []*model.AlertEvent
-	
-	// 检查10个热控温度点 (假设正常范围 [-20, 50]℃)
+	thermMin, thermMax := rangeOrDefault(config.MetricThreshold{}, -20.0, 50.0)
+	if len(tc.Thermal.ThermalTemps) > 0 {
+		thermMin, thermMax = rangeOrDefault(config.MetricThreshold{Min: tc.Thermal.ThermalTemps[0].Min, Max: tc.Thermal.ThermalTemps[0].Max}, -20.0, 50.0)
+	}
+	bat1Min, bat1Max := rangeOrDefault(tc.Thermal.BatteryTemp1, 0.0, 45.0)
+
 	for i, temp := range metrics.ThermalTemps {
-		if temp < -20.0 || temp > 50.0 {
+		if temp < thermMin || temp > thermMax {
 			alerts = append(alerts, &model.AlertEvent{
 				AlertID:     fmt.Sprintf("THERM-TEMP%d-%d", i+1, time.Now().Unix()),
 				Type:        "TemperatureAbnormal",
-				Severity:    model.SeverityWarning,
+				Status:      model.AlertStatusFiring,
 				Source:      fmt.Sprintf("ThermalTemp%d", i+1),
 				Message:     fmt.Sprintf("热控温度%d异常: %.1f℃", i+1, temp),
 				Timestamp:   metrics.Timestamp,
@@ -97,13 +187,12 @@ func CheckThermalThresholds(metrics *model.ThermalMetrics) []*model.AlertEvent {
 			})
 		}
 	}
-	
-	// 蓄电池温度检查 (假设正常范围 [0, 45]℃)
-	if metrics.BatteryTemp1 < 0.0 || metrics.BatteryTemp1 > 45.0 {
+
+	if metrics.BatteryTemp1 < bat1Min || metrics.BatteryTemp1 > bat1Max {
 		alerts = append(alerts, &model.AlertEvent{
 			AlertID:     fmt.Sprintf("THERM-BAT1-%d", time.Now().Unix()),
 			Type:        "TemperatureAbnormal",
-			Severity:    model.SeverityWarning,
+			Status:      model.AlertStatusFiring,
 			Source:      "BatteryTemp1",
 			Message:     fmt.Sprintf("蓄电池温度1异常: %.1f℃", metrics.BatteryTemp1),
 			Timestamp:   metrics.Timestamp,
@@ -111,20 +200,25 @@ func CheckThermalThresholds(metrics *model.ThermalMetrics) []*model.AlertEvent {
 			MetricValue: metrics.BatteryTemp1,
 		})
 	}
-	
+
 	return alerts
 }
 
-// CheckCommThresholds 检查通信服务阈值
+// CheckCommThresholds 检查通信服务阈值（当前仅触发告警）
 func CheckCommThresholds(metrics *model.CommMetrics) []*model.AlertEvent {
+	if metrics == nil {
+		return nil
+	}
+	tc := config.GetThresholdConfig()
 	var alerts []*model.AlertEvent
-	
-	// CAN通信状态检查
-	if metrics.CANStatus == 0 {
+	canExpected := intOrDefault(tc.Comm.CANStatus.Value, 1)
+	serialExpected := intOrDefault(tc.Comm.SerialStatus.Value, 1)
+
+	if int(metrics.CANStatus) != canExpected {
 		alerts = append(alerts, &model.AlertEvent{
 			AlertID:     fmt.Sprintf("COMM-CAN-%d", time.Now().Unix()),
 			Type:        "CommunicationFailure",
-			Severity:    model.SeverityCritical,
+			Status:      model.AlertStatusFiring,
 			Source:      "CANStatus",
 			Message:     "CAN通信无应答",
 			Timestamp:   metrics.Timestamp,
@@ -132,13 +226,12 @@ func CheckCommThresholds(metrics *model.CommMetrics) []*model.AlertEvent {
 			MetricValue: float64(metrics.CANStatus),
 		})
 	}
-	
-	// 串口通信状态检查
-	if metrics.SerialStatus == 0 {
+
+	if int(metrics.SerialStatus) != serialExpected {
 		alerts = append(alerts, &model.AlertEvent{
 			AlertID:     fmt.Sprintf("COMM-SERIAL-%d", time.Now().Unix()),
 			Type:        "CommunicationFailure",
-			Severity:    model.SeverityWarning,
+			Status:      model.AlertStatusFiring,
 			Source:      "SerialStatus",
 			Message:     "串口通信无遥测",
 			Timestamp:   metrics.Timestamp,
@@ -146,24 +239,30 @@ func CheckCommThresholds(metrics *model.CommMetrics) []*model.AlertEvent {
 			MetricValue: float64(metrics.SerialStatus),
 		})
 	}
-	
+
 	return alerts
 }
 
-// CheckActuatorThresholds 检查姿态控制机构阈值
+// CheckActuatorThresholds 检查姿态控制机构阈值（当前仅触发告警）
 func CheckActuatorThresholds(metrics *model.ActuatorMetrics) []*model.AlertEvent {
+	if metrics == nil {
+		return nil
+	}
+	tc := config.GetThresholdConfig()
 	var alerts []*model.AlertEvent
-	
-	// 动量轮转速检查 (期望约100转，允许误差±10)
-	expectedSpeed := int16(100)
-	tolerance := int16(10)
-	
-	checkWheel := func(speed int16, axis string) {
-		if speed < expectedSpeed-tolerance || speed > expectedSpeed+tolerance {
+
+	expectedX := valueOrDefault(tc.Actuator.WheelSpeed.X.Value, 100)
+	expectedY := valueOrDefault(tc.Actuator.WheelSpeed.Y.Value, 100)
+	expectedZ := valueOrDefault(tc.Actuator.WheelSpeed.Z.Value, 100)
+	tolerance := valueOrDefault(tc.Actuator.WheelSpeedTolerance, 10)
+
+	checkWheel := func(speed int16, axis string, expected float64) {
+		s := float64(speed)
+		if s < expected-tolerance || s > expected+tolerance {
 			alerts = append(alerts, &model.AlertEvent{
 				AlertID:     fmt.Sprintf("ACTUATOR-%s-%d", axis, time.Now().Unix()),
 				Type:        "ActuatorAbnormal",
-				Severity:    model.SeverityWarning,
+				Status:      model.AlertStatusFiring,
 				Source:      fmt.Sprintf("WheelSpeed%s", axis),
 				Message:     fmt.Sprintf("%s轴动量轮转速异常: %d (期望约100转)", axis, speed),
 				Timestamp:   metrics.Timestamp,
@@ -172,259 +271,165 @@ func CheckActuatorThresholds(metrics *model.ActuatorMetrics) []*model.AlertEvent
 			})
 		}
 	}
-	
-	checkWheel(metrics.WheelSpeedX, "X")
-	checkWheel(metrics.WheelSpeedY, "Y")
-	checkWheel(metrics.WheelSpeedZ, "Z")
-	
+
+	checkWheel(metrics.WheelSpeedX, "X", expectedX)
+	checkWheel(metrics.WheelSpeedY, "Y", expectedY)
+	checkWheel(metrics.WheelSpeedZ, "Z", expectedZ)
+
 	return alerts
 }
 
-// ========== 微服务层阈值检查函数 ==========
-
-// CheckNodeThresholds 检查节点指标阈值
+// CheckNodeThresholds 检查节点指标阈值（无状态入口）
 func CheckNodeThresholds(metrics *model.NodeMetrics) []*model.AlertEvent {
+	return CheckNodeThresholdsWithState(metrics, nil)
+}
+
+// CheckNodeThresholdsWithState 检查节点指标（支持恢复告警）
+func CheckNodeThresholdsWithState(metrics *model.NodeMetrics, sm *state.StateManager) []*model.AlertEvent {
+	if metrics == nil {
+		return nil
+	}
+
+	tc := config.GetThresholdConfig()
+	now := time.Now().Unix()
 	var alerts []*model.AlertEvent
-	
-	// 节点在线状态检查
-	if metrics.Status != "online" {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("NODE-%s-OFFLINE-%d", metrics.ID, time.Now().Unix()),
-			Type:        "NodeOffline",
-			Severity:    model.SeverityCritical,
-			Source:      metrics.ID,
-			Message:     fmt.Sprintf("节点 %s 离线", metrics.ID),
-			Timestamp:   time.Now().Unix(),
-			FaultCode:   "MS-NO-FL-1",
-			MetricValue: 0,
-		})
+
+	isFiring := metrics.Status != "online"
+	alerts = appendAlert(alerts, sm,
+		"NODE_OFFLINE", metrics.ID, isFiring, true,
+		"node_offline", "MS-NO-FL-1",
+		fmt.Sprintf("节点 %s 离线", metrics.ID),
+		fmt.Sprintf("节点 %s 已恢复在线", metrics.ID),
+		0, nil, now)
+
+	if cpuUsage, ok := nodeCPUUsage(metrics); ok {
+		isFiring = cpuUsage > tc.Node.CPUUsageMax
+		alerts = appendAlert(alerts, sm,
+			"NODE_CPU_HIGH", metrics.ID, isFiring, true,
+			"cpu_high", "MS-NO-FL-2",
+			fmt.Sprintf("节点 %s CPU使用率过高: %.1f%%", metrics.ID, cpuUsage),
+			fmt.Sprintf("节点 %s CPU使用率已恢复: %.1f%%", metrics.ID, cpuUsage),
+			cpuUsage, nil, now)
 	}
-	
-	// CPU使用率检查 (> 85%)
-	if cpuUsage, ok := metrics.CPUUsage.(float64); ok {
-		if cpuUsage > 85.0 {
-			alerts = append(alerts, &model.AlertEvent{
-				AlertID:     fmt.Sprintf("NODE-%s-CPU-%d", metrics.ID, time.Now().Unix()),
-				Type:        "HighCPUUsage",
-				Severity:    model.SeverityCritical,
-				Source:      metrics.ID,
-				Message:     fmt.Sprintf("节点 %s CPU使用率过高: %.1f%%", metrics.ID, cpuUsage),
-				Timestamp:   time.Now().Unix(),
-				FaultCode:   "MS-NO-FL-2",
-				MetricValue: cpuUsage,
-			})
-		}
-	}
-	
-	// 内存使用率检查 (> 90%)
+
 	if metrics.MemoryTotal > 0 {
 		memoryPercent := float64(metrics.MemoryTotal-metrics.MemoryFree) / float64(metrics.MemoryTotal) * 100
-		if memoryPercent > 90.0 {
-			alerts = append(alerts, &model.AlertEvent{
-				AlertID:     fmt.Sprintf("NODE-%s-MEM-%d", metrics.ID, time.Now().Unix()),
-				Type:        "HighMemoryUsage",
-				Severity:    model.SeverityCritical,
-				Source:      metrics.ID,
-				Message:     fmt.Sprintf("节点 %s 内存使用率过高: %.1f%%", metrics.ID, memoryPercent),
-				Timestamp:   time.Now().Unix(),
-				FaultCode:   "MS-NO-FL-3",
-				MetricValue: memoryPercent,
-			})
-		}
+		isFiring = memoryPercent > tc.Node.MemoryUsageMax
+		alerts = appendAlert(alerts, sm,
+			"NODE_MEMORY_HIGH", metrics.ID, isFiring, true,
+			"memory_high", "MS-NO-FL-3",
+			fmt.Sprintf("节点 %s 内存使用率过高: %.1f%%", metrics.ID, memoryPercent),
+			fmt.Sprintf("节点 %s 内存使用率已恢复: %.1f%%", metrics.ID, memoryPercent),
+			memoryPercent, nil, now)
 	}
-	
-	// 磁盘使用率检查 (> 90%)
+
 	if metrics.DiskTotal > 0 {
 		diskPercent := (metrics.DiskTotal - metrics.DiskFree) / metrics.DiskTotal * 100
-		if diskPercent > 90.0 {
-			alerts = append(alerts, &model.AlertEvent{
-				AlertID:     fmt.Sprintf("NODE-%s-DISK-%d", metrics.ID, time.Now().Unix()),
-				Type:        "HighDiskUsage",
-				Severity:    model.SeverityCritical,
-				Source:      metrics.ID,
-				Message:     fmt.Sprintf("节点 %s 磁盘使用率过高: %.1f%%", metrics.ID, diskPercent),
-				Timestamp:   time.Now().Unix(),
-				FaultCode:   "MS-NO-FL-4",
-				MetricValue: diskPercent,
-			})
-		}
+		isFiring = diskPercent > tc.Node.DiskUsageMax
+		alerts = appendAlert(alerts, sm,
+			"NODE_DISK_HIGH", metrics.ID, isFiring, true,
+			"disk_high", "MS-NO-FL-4",
+			fmt.Sprintf("节点 %s 磁盘使用率过高: %.1f%%", metrics.ID, diskPercent),
+			fmt.Sprintf("节点 %s 磁盘使用率已恢复: %.1f%%", metrics.ID, diskPercent),
+			diskPercent, nil, now)
 	}
-	
-	// 容器运行比例检查 (< 0.8)
-	/* if metrics.ContainerTotal > 0 {
-		runningRatio := float64(metrics.ContainerRunning) / float64(metrics.ContainerTotal)
-		if runningRatio < 0.8 {
-			alerts = append(alerts, &model.AlertEvent{
-				AlertID:     fmt.Sprintf("NODE-%s-CNTR-%d", metrics.ID, time.Now().Unix()),
-				Type:        "LowContainerRunningRatio",
-				Severity:    model.SeverityWarning,
-				Source:      fmt.Sprintf("Node-%s-Containers", metrics.ID),
-				Message:     fmt.Sprintf("节点 %s 容器运行比例过低: %.1f%% (%d/%d)", metrics.ID, runningRatio*100, metrics.ContainerRunning, metrics.ContainerTotal),
-				Timestamp:   time.Now().Unix(),
-				FaultCode:   "MS-NO-FL-6",
-				MetricValue: runningRatio * 100,
-			})
-		}
-	} */
-	
+
 	return alerts
 }
 
-// CheckContainerThresholds 检查容器指标阈值
+// CheckContainerThresholds 检查容器指标阈值（无状态入口）
 func CheckContainerThresholds(metrics *model.ContainerMetrics) []*model.AlertEvent {
+	return CheckContainerThresholdsWithState(metrics, nil)
+}
+
+// CheckContainerThresholdsWithState 检查容器指标（支持恢复告警）
+func CheckContainerThresholdsWithState(metrics *model.ContainerMetrics, sm *state.StateManager) []*model.AlertEvent {
+	if metrics == nil {
+		return nil
+	}
+
+	tc := config.GetThresholdConfig()
+	now := time.Now().Unix()
+	md := containerMetadata(metrics)
 	var alerts []*model.AlertEvent
-	
-	// 容器部署状态检查
-	if metrics.DeployStatus != "success" {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("CNTR-%s-DEPLOY-%d", metrics.ID, time.Now().Unix()),
-			Type:        "DeploymentFailure",
-			Severity:    model.SeverityCritical,
-			Source:      metrics.ID,
-			Message:     fmt.Sprintf("容器 %s 部署失败: %s", metrics.ID, metrics.DeployStatus),
-			Timestamp:   time.Now().Unix(),
-			FaultCode:   "MS-CN-FL-1",
-			MetricValue: 0,
-		})
-	}
-	
-	// 容器启动状态检查
-	/* if metrics.Status != "running" {
-		severity := model.SeverityWarning
-		if metrics.Status == "exited" {
-			severity = model.SeverityCritical
-		}
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("CNTR-%s-STATUS-%d", metrics.ID, time.Now().Unix()),
-			Type:        "ContainerNotRunning",
-			Severity:    severity,
-			Source:      fmt.Sprintf("Container-%s", metrics.ID),
-			Message:     fmt.Sprintf("容器 %s 状态异常: %s", metrics.ID, metrics.Status),
-			Timestamp:   time.Now().Unix(),
-			FaultCode:   "MS-CN-FL-2",
-			MetricValue: 0,
-		})
-	} */
-	
-	// 容器运行中断检查 (< 60s)
-	/* if metrics.Uptime < 60 && metrics.Status == "running" {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("CNTR-%s-UPTIME-%d", metrics.ID, time.Now().Unix()),
-			Type:        "ShortUptime",
-			Severity:    model.SeverityWarning,
-			Source:      fmt.Sprintf("Container-%s", metrics.ID),
-			Message:     fmt.Sprintf("容器 %s 运行时间过短: %ds", metrics.ID, metrics.Uptime),
-			Timestamp:   time.Now().Unix(),
-			FaultCode:   "MS-CN-FL-3",
-			MetricValue: float64(metrics.Uptime),
-		})
-	} */
-	
-	// 容器CPU使用率检查 (> 75%)
-	if metrics.CPUUsage.Total > 65.0 {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("CNTR-%s-CPU-%d", metrics.ID, time.Now().Unix()),
-			Type:        "HighCPUUsage",
-			Severity:    model.SeverityCritical,
-			Source:      metrics.ID,
-			Message:     fmt.Sprintf("容器 %s CPU使用率过高: %.1f%%", metrics.ID, metrics.CPUUsage.Total),
-			Timestamp:   time.Now().Unix(),
-			FaultCode:   "MS-CN-FL-5",
-			MetricValue: metrics.CPUUsage.Total,
-		})
-	}
-	
-	// 容器内存使用率检查 (> 90%)
+
+	isFiring := metrics.DeployStatus != "success"
+	alerts = appendAlert(alerts, sm,
+		"CONTAINER_DEPLOY_FAIL", metrics.ID, isFiring, true,
+		"deployment_failure", "MS-CN-FL-1",
+		fmt.Sprintf("容器 %s 部署失败: %s", metrics.ID, metrics.DeployStatus),
+		fmt.Sprintf("容器 %s 部署状态已恢复: %s", metrics.ID, metrics.DeployStatus),
+		0, md, now)
+
+	cpuUsage := metrics.CPUUsage.Total
+	isFiring = cpuUsage > tc.Container.CPUUsageMax
+	alerts = appendAlert(alerts, sm,
+		"CONTAINER_CPU_HIGH", metrics.ID, isFiring, true,
+		"cpu_high", "MS-CN-FL-5",
+		fmt.Sprintf("容器 %s CPU使用率过高: %.1f%%", metrics.ID, cpuUsage),
+		fmt.Sprintf("容器 %s CPU使用率已恢复: %.1f%%", metrics.ID, cpuUsage),
+		cpuUsage, md, now)
+
 	if metrics.MemoryLimit > 0 {
 		memoryPercent := float64(metrics.MemoryUsage) / float64(metrics.MemoryLimit) * 100
-		if memoryPercent > 80.0 {
-			alerts = append(alerts, &model.AlertEvent{
-				AlertID:     fmt.Sprintf("CNTR-%s-MEM-%d", metrics.ID, time.Now().Unix()),
-				Type:        "HighMemoryUsage",
-				Severity:    model.SeverityCritical,
-				Source:      metrics.ID,
-				Message:     fmt.Sprintf("容器 %s 内存使用率过高: %.1f%%", metrics.ID, memoryPercent),
-				Timestamp:   time.Now().Unix(),
-				FaultCode:   "MS-CN-FL-5",
-				MetricValue: memoryPercent,
-			})
-		}
+		isFiring = memoryPercent > tc.Container.MemoryUsageMax
+		alerts = appendAlert(alerts, sm,
+			"CONTAINER_MEMORY_HIGH", metrics.ID, isFiring, true,
+			"memory_high", "MS-CN-FL-5",
+			fmt.Sprintf("容器 %s 内存使用率过高: %.1f%%", metrics.ID, memoryPercent),
+			fmt.Sprintf("容器 %s 内存使用率已恢复: %.1f%%", metrics.ID, memoryPercent),
+			memoryPercent, md, now)
 	}
-	
-	// 容器磁盘占用率检查 (> 90%)
+
 	if metrics.SizeLimit > 0 {
 		diskPercent := float64(metrics.SizeUsage) / float64(metrics.SizeLimit) * 100
-		if diskPercent > 65.0 {
-			alerts = append(alerts, &model.AlertEvent{
-				AlertID:     fmt.Sprintf("CNTR-%s-DISK-%d", metrics.ID, time.Now().Unix()),
-				Type:        "HighDiskUsage",
-				Severity:    model.SeverityCritical,
-				Source:      metrics.ID,
-				Message:     fmt.Sprintf("容器 %s 磁盘占用率过高: %.1f%%", metrics.ID, diskPercent),
-				Timestamp:   time.Now().Unix(),
-				FaultCode:   "MS-CN-FL-6",
-				MetricValue: diskPercent,
-			})
-		}
+		isFiring = diskPercent > tc.Container.DiskUsageMax
+		alerts = appendAlert(alerts, sm,
+			"CONTAINER_DISK_HIGH", metrics.ID, isFiring, true,
+			"disk_high", "MS-CN-FL-6",
+			fmt.Sprintf("容器 %s 磁盘占用率过高: %.1f%%", metrics.ID, diskPercent),
+			fmt.Sprintf("容器 %s 磁盘占用率已恢复: %.1f%%", metrics.ID, diskPercent),
+			diskPercent, md, now)
 	}
-	
+
 	return alerts
 }
 
-// CheckServiceThresholds 检查服务指标阈值
+// CheckServiceThresholds 检查服务指标阈值（无状态入口）
 func CheckServiceThresholds(metrics *model.ServiceMetrics) []*model.AlertEvent {
+	return CheckServiceThresholdsWithState(metrics, nil)
+}
+
+// CheckServiceThresholdsWithState 检查服务指标（支持恢复告警）
+func CheckServiceThresholdsWithState(metrics *model.ServiceMetrics, sm *state.StateManager) []*model.AlertEvent {
+	if metrics == nil {
+		return nil
+	}
+
+	tc := config.GetThresholdConfig()
+	now := time.Now().Unix()
 	var alerts []*model.AlertEvent
-	
-	// 服务健康状态检查
-	if !metrics.Healthy {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("SVC-%s-HEALTH-%d", metrics.ID, time.Now().Unix()),
-			Type:        "ServiceUnhealthy",
-			Severity:    model.SeverityWarning,
-			Source:      metrics.ID,
-			Message:     fmt.Sprintf("服务 %s 健康检查失败", metrics.ID),
-			Timestamp:   time.Now().Unix(),
-			FaultCode:   "MS-SV-FL-1",
-			MetricValue: 0,
-		})
+	requireHealthy := tc.Service.RequireHealthy
+	instanceOnlineMin := tc.Service.InstanceOnlineMin
+	if instanceOnlineMin <= 0 {
+		instanceOnlineMin = 1
 	}
-	
-	// 服务节点数量检查 (= 0)
-	if metrics.InstanceOnline == 0 {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("SVC-%s-NODES-%d", metrics.ID, time.Now().Unix()),
-			Type:        "NoOnlineNodes",
-			Severity:    model.SeverityWarning,
-			Source:      metrics.ID,
-			Message:     fmt.Sprintf("服务 %s 无在线节点", metrics.ID),
-			Timestamp:   time.Now().Unix(),
-			FaultCode:   "MS-SV-FL-5",
-			MetricValue: 0,
-		})
-	}
-	
-	// 容器运行比例检查
-	/* if len(metrics.ContainerStatusGroup) > 0 {
-		runningCount := 0
-		for _, status := range metrics.ContainerStatusGroup {
-			if status == "running" {
-				runningCount++
-			}
-		}
-		runningRatio := float64(runningCount) / float64(len(metrics.ContainerStatusGroup))
-		if runningRatio < 0.8 {
-			alerts = append(alerts, &model.AlertEvent{
-				AlertID:     fmt.Sprintf("SVC-%s-CNTR-%d", metrics.ID, time.Now().Unix()),
-				Type:        "LowContainerRunningRatio",
-				Severity:    model.SeverityWarning,
-				Source:      fmt.Sprintf("Service-%s-Containers", metrics.ID),
-				Message:     fmt.Sprintf("服务 %s 容器运行比例过低: %.1f%% (%d/%d)", metrics.ID, runningRatio*100, runningCount, len(metrics.ContainerStatusGroup)),
-				Timestamp:   time.Now().Unix(),
-				FaultCode:   "MS-SV-FL-4",
-				MetricValue: runningRatio * 100,
-			})
-		}
-	} */
-	
+
+	isFiring := requireHealthy && !metrics.Healthy
+	alerts = appendAlert(alerts, sm,
+		"SERVICE_UNHEALTHY", metrics.ID, isFiring, true,
+		"service_unhealthy", "MS-SV-FL-1",
+		fmt.Sprintf("服务 %s 健康检查失败", metrics.ID),
+		fmt.Sprintf("服务 %s 健康检查已恢复", metrics.ID),
+		0, nil, now)
+
+	isFiring = metrics.InstanceOnline < instanceOnlineMin
+	alerts = appendAlert(alerts, sm,
+		"SERVICE_NO_ONLINE_NODES", metrics.ID, isFiring, true,
+		"no_online_nodes", "MS-SV-FL-5",
+		fmt.Sprintf("服务 %s 无在线节点", metrics.ID),
+		fmt.Sprintf("服务 %s 在线节点已恢复", metrics.ID),
+		0, nil, now)
+
 	return alerts
 }

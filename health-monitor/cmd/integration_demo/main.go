@@ -12,7 +12,8 @@ import (
 )
 
 func main() {
-	fmt.Println("========== 完整系统集成演示 ==========\n")
+	fmt.Println("========== 完整系统集成演示 ==========")
+	fmt.Println()
 	
 	// 1. 创建状态管理器（纯内存模式）
 	fmt.Println("1. 初始化状态管理器（纯内存模式）...")
@@ -27,7 +28,8 @@ func main() {
 	businessDispatcher := business.NewDispatcher(sm)
 	businessReceiver := business.NewReceiver(businessDispatcher)
 	
-	fmt.Println("\n========== 模拟数据采集 ==========\n")
+	fmt.Println("\n========== 模拟数据采集 ==========")
+	fmt.Println()
 	
 	// 模拟业务层报文
 	fmt.Println("3. 模拟业务层报文...")
@@ -97,7 +99,8 @@ func main() {
 	time.Sleep(500 * time.Millisecond)
 	
 	// 7. 查询状态管理器
-	fmt.Println("\n========== 状态查询演示 ==========\n")
+	fmt.Println("\n========== 状态查询演示 ==========")
+	fmt.Println()
 	
 	fmt.Println("7. 查询最新状态...")
 	

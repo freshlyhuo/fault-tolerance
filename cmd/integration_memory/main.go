@@ -9,6 +9,7 @@ import (
 	healthModel "health-monitor/pkg/models"
 
 	// 故障诊断模块
+	diagnosisConfig "fault-diagnosis/pkg/config"
 	diagnosisEngine "fault-diagnosis/pkg/engine"
 	diagnosisModels "fault-diagnosis/pkg/models"
 	diagnosisReceiver "fault-diagnosis/pkg/receiver"
@@ -22,38 +23,35 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	fmt.Println("========== 健康监测 + 故障诊断 内存集成示例 ==========\n")
+	fmt.Println("========== 健康监测 + 故障诊断 内存集成示例 ==========")
+	fmt.Println()
 
 	// 2. 创建故障诊断模块
 	fmt.Println("1. 初始化故障诊断模块...")
 	
 	// 加载故障树配置
-	faultTree, err := diagnosisModels.LoadFaultTreeFromFile("../../fault-diagnosis/configs/fault_tree_microservice.json")
+	loader := diagnosisConfig.NewLoader("./fault-diagnosis/configs/fault_tree_microservice.json")
+	faultTree, err := loader.LoadFaultTree()
 	if err != nil {
 		logger.Fatal("加载故障树失败", zap.Error(err))
 	}
 
 	// 创建诊断引擎
-	engine := diagnosisEngine.NewEngine(faultTree, logger)
+	engine, err := diagnosisEngine.NewDiagnosisEngine(faultTree, logger)
+	if err != nil {
+		logger.Fatal("创建诊断引擎失败", zap.Error(err))
+	}
+	engine.SetCallback(func(result *diagnosisModels.DiagnosisResult) {
+		fmt.Printf("  [诊断结果] 故障码: %s, 顶层事件: %s\n", result.FaultCode, result.TopEventName)
+	})
 
 	// 创建告警接收器
 	receiver := diagnosisReceiver.NewChannelReceiver(500, logger)
 	
 	// 设置告警处理函数
 	receiver.SetHandler(func(alert *diagnosisModels.AlertEvent) {
-		fmt.Printf("  [诊断模块] 收到告警: %s (%s)\n", alert.AlertID, alert.Severity)
-		
-		// 更新基本事件状态
-		engine.UpdateBasicEvent(alert.AlertID, true)
-		
-		// 执行诊断
-		result := engine.Diagnose()
-		
-		// 输出诊断结果
-		if result.IsFault {
-			fmt.Printf("  [诊断结果] 检测到故障: %s - %s\n", result.FaultCode, result.FaultMessage)
-			fmt.Printf("  [故障概率] %.2f%%\n", result.Probability*100)
-		}
+		fmt.Printf("  [诊断模块] 收到告警: %s\n", alert.AlertID)
+		engine.ProcessAlert(alert)
 	})
 	
 	// 启动接收器
@@ -66,14 +64,14 @@ func main() {
 	receiverWrapper := diagnosisReceiver.NewReceiverWrapper(receiver)
 
 	// 4. 模拟健康监测产生告警
-	fmt.Println("2. 模拟健康监测产生告警...\n")
+	fmt.Println("2. 模拟健康监测产生告警...")
+	fmt.Println()
 	
 	// 模拟微服务层告警
 	alerts := []*healthModel.AlertEvent{
 		{
 			AlertID:     "SERVICE_P99_LATENCY_HIGH",
 			Type:        "latency_high",
-			Severity:    healthModel.SeverityWarning,
 			Source:      "user-service",
 			Message:     "用户服务P99延迟过高: 850ms",
 			Timestamp:   time.Now().Unix(),
@@ -87,7 +85,6 @@ func main() {
 		{
 			AlertID:     "CONTAINER_CPU_HIGH",
 			Type:        "cpu_high",
-			Severity:    healthModel.SeverityCritical,
 			Source:      "user-service-container-1",
 			Message:     "容器CPU使用率过高: 95%",
 			Timestamp:   time.Now().Unix(),
@@ -102,7 +99,6 @@ func main() {
 		{
 			AlertID:     "SERVICE_ERROR_RATE_HIGH",
 			Type:        "error_rate_high",
-			Severity:    healthModel.SeverityCritical,
 			Source:      "order-service",
 			Message:     "订单服务错误率过高: 15%",
 			Timestamp:   time.Now().Unix(),
@@ -116,7 +112,8 @@ func main() {
 	}
 
 	// 发送告警
-	fmt.Println("3. 健康监测发送告警到故障诊断...\n")
+	fmt.Println("3. 健康监测发送告警到故障诊断...")
+	fmt.Println()
 	for _, alert := range alerts {
 		if err := receiverWrapper.SendAlert(healthAlert.ConvertToDiagnosisAlertDirect(alert)); err != nil {
 			fmt.Printf("发送告警失败: %v\n", err)

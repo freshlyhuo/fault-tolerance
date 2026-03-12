@@ -1,22 +1,3 @@
-/* 功能：
-
-整合所有判断（阈值 / 趋势 / 时空关联）
-
-进行告警压缩：重复合并
-
-进行优先级提升：关键服务优先
-
-输出最终告警事件
-
-最终输出：
-可以分成——
-业务层故障事件和微服务层故障事件
-业务层故障分级按照故障表分级
-微服务层故障分为两级
-1.已经发生故障，需要立即干预
-2.有指标趋势，如波动，持续增长
-
-[]AlertEvent → 故障诊断模块。 */
 package alert
 
 import (
@@ -28,27 +9,15 @@ import (
 
 // Generator 告警生成器
 type Generator struct {
-	trendAnalyzer *TrendAnalyzer // 趋势分析器
-	alertAdapter  *AlertAdapter   // 告警适配器（可选，用于直接发送到故障诊断）
+	stateManager *state.StateManager // 状态管理器（用于阈值触发/恢复）
+	alertAdapter *AlertAdapter       // 告警适配器（可选，用于直接发送到故障诊断）
 }
 
 // NewGenerator 创建新的告警生成器
-func NewGenerator() *Generator {
-	return &Generator{}
-}
-
-// NewGeneratorWithStateManager 创建带状态管理的告警生成器
-func NewGeneratorWithStateManager(sm *state.StateManager) *Generator {
+// sm 可为 nil：nil 时按无状态阈值检查，仅触发告警，不生成恢复告警。
+func NewGenerator(sm *state.StateManager) *Generator {
 	return &Generator{
-		trendAnalyzer: NewTrendAnalyzer(sm),
-	}
-}
-
-// NewGeneratorWithDiagnosis 创建带故障诊断集成的告警生成器
-func NewGeneratorWithDiagnosis(sm *state.StateManager, diagnosisReceiver DiagnosisReceiver) *Generator {
-	return &Generator{
-		trendAnalyzer: NewTrendAnalyzer(sm),
-		alertAdapter:  NewAlertAdapter(diagnosisReceiver),
+		stateManager: sm,
 	}
 }
 
@@ -60,12 +29,8 @@ func (g *Generator) SetDiagnosisReceiver(receiver DiagnosisReceiver) {
 // ProcessBusinessMetrics 处理业务层指标，生成告警事件
 func (g *Generator) ProcessBusinessMetrics(ctx context.Context, bm *model.BusinessMetrics) {
 	var alerts []*model.AlertEvent
-	
-	// 获取状态管理器（如果有趋势分析器，说明有状态管理器）
-	var sm *state.StateManager
-	if g.trendAnalyzer != nil {
-		sm = g.trendAnalyzer.stateManager
-	}
+
+	sm := g.stateManager
 	
 	// 根据组件类型调用对应的阈值检查函数
 	switch bm.ComponentType {
@@ -107,12 +72,8 @@ func (g *Generator) ProcessBusinessMetrics(ctx context.Context, bm *model.Busine
 // ProcessMicroserviceMetrics 处理微服务层指标，生成告警事件
 func (g *Generator) ProcessMicroserviceMetrics(ctx context.Context, ms *model.MicroServiceMetricsSet) {
 	var alerts []*model.AlertEvent
-	
-	// 获取状态管理器
-	var sm *state.StateManager
-	if g.trendAnalyzer != nil {
-		sm = g.trendAnalyzer.stateManager
-	}
+
+	sm := g.stateManager
 	
 	// 1. 阈值告警检查（已经发生的故障）
 	// 处理节点指标
@@ -148,28 +109,7 @@ func (g *Generator) ProcessMicroserviceMetrics(ctx context.Context, ms *model.Mi
 		alerts = append(alerts, serviceAlerts...)
 	}
 	
-	// 2. 趋势告警检查（即将发生的故障）
-	if g.trendAnalyzer != nil {
-		// 分析节点趋势
-		for _, nodeMetrics := range ms.NodeMetrics {
-			trendAlerts := g.trendAnalyzer.AnalyzeNodeTrends(ctx, nodeMetrics.ID)
-			alerts = append(alerts, trendAlerts...)
-		}
-		
-		// 分析容器趋势
-		for _, containerMetrics := range ms.ContainerMetrics {
-			trendAlerts := g.trendAnalyzer.AnalyzeContainerTrends(ctx, containerMetrics.ID)
-			alerts = append(alerts, trendAlerts...)
-		}
-		
-		// 分析服务趋势
-		for _, serviceMetrics := range ms.ServiceMetrics {
-			trendAlerts := g.trendAnalyzer.AnalyzeServiceTrends(ctx, serviceMetrics.ID)
-			alerts = append(alerts, trendAlerts...)
-		}
-	}
-	
-	// 3. 如果有告警，进行处理和输出
+	// 2. 如果有告警，进行处理和输出
 	if len(alerts) > 0 {
 		g.outputAlerts(alerts)
 	}
@@ -188,45 +128,15 @@ func (g *Generator) outputAlerts(alerts []*model.AlertEvent) {
 		}
 	}
 	
-	// 如果有 firing 告警，按严重程度分类并输出
+	// 如果有 firing 告警，统一输出
 	if len(firingAlerts) > 0 {
-		var critical, warning, info []*model.AlertEvent
-		for _, alert := range firingAlerts {
-			switch alert.Severity {
-			case model.SeverityCritical:
-				critical = append(critical, alert)
-			case model.SeverityWarning:
-				warning = append(warning, alert)
-			case model.SeverityInfo:
-				info = append(info, alert)
-			}
-		}
-		
-		// 输出告警
 		fmt.Println("\n========== 告警事件 ==========")
-		
-		if len(critical) > 0 {
-			fmt.Printf("\n【严重告警】共 %d 个:\n", len(critical))
-			for _, alert := range critical {
-				g.printAlert(alert)
-			}
+		fmt.Printf("\n【触发告警】共 %d 个:\n", len(firingAlerts))
+		for _, alert := range firingAlerts {
+			g.printAlert(alert)
 		}
-		
-		if len(warning) > 0 {
-			fmt.Printf("\n【警告告警】共 %d 个:\n", len(warning))
-			for _, alert := range warning {
-				g.printAlert(alert)
-			}
-		}
-		
-		if len(info) > 0 {
-			fmt.Printf("\n【信息告警】共 %d 个:\n", len(info))
-			for _, alert := range info {
-				g.printAlert(alert)
-			}
-		}
-		
-		fmt.Println("==============================\n")
+		fmt.Println("==============================")
+		fmt.Println()
 	}
 	
 	// 发送告警到故障诊断模块（如果已配置）

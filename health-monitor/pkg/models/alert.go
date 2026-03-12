@@ -8,23 +8,12 @@ AlertID
 
 Type
 
-Severity
-
 Source （业务/容器/节点/服务）
 
 Timestamp ？
 
 关联事件（related alerts）？ */
 package model
-
-// AlertSeverity 告警严重程度
-type AlertSeverity string
-
-const (
-	SeverityInfo     AlertSeverity = "info"     // 信息级别
-	SeverityWarning  AlertSeverity = "warning"  // 警告级别
-	SeverityCritical AlertSeverity = "critical" // 严重级别
-)
 
 // AlertStatus 告警状态
 type AlertStatus string
@@ -39,7 +28,6 @@ type AlertEvent struct {
 	AlertID       string        // 告警唯一标识
 	Type          string        // 告警类型
 	Status        AlertStatus   // 告警状态（firing/resolved）
-	Severity      AlertSeverity // 严重程度
 	Source        string        // 告警源（组件名称）
 	Message       string        // 告警消息
 	Timestamp     int64                  // 时间戳
