@@ -7,6 +7,7 @@ package alert
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"health-monitor/pkg/config"
@@ -29,7 +30,22 @@ func intOrDefault(v *int, def int) int {
 }
 
 func rangeOrDefault(t config.MetricThreshold, defMin, defMax float64) (float64, float64) {
-	return valueOrDefault(t.Min, defMin), valueOrDefault(t.Max, defMax)
+	return normalizeByUnit(valueOrDefault(t.Min, defMin), t.Unit), normalizeByUnit(valueOrDefault(t.Max, defMax), t.Unit)
+}
+
+func normalizeByUnit(v float64, unit string) float64 {
+	switch strings.ToLower(strings.TrimSpace(unit)) {
+	case "mv":
+		return v / 1000.0
+	case "ma":
+		return v / 1000.0
+	default:
+		return v
+	}
+}
+
+func isConfiguredInt(v *int) bool {
+	return v != nil
 }
 
 func shouldSendByState(sm *state.StateManager, alertID, source string, isFiring, bySource bool) (bool, bool) {
@@ -120,10 +136,11 @@ func CheckPowerThresholdsWithState(metrics *model.PowerMetrics, sm *state.StateM
 	tc := config.GetThresholdConfig()
 	now := time.Now().Unix()
 	var alerts []*model.AlertEvent
-	p12Min, p12Max := rangeOrDefault(tc.Power.PowerModule12V, 12.5, 13.5)
-	batMin, batMax := rangeOrDefault(tc.Power.BatteryVoltage, 21.0, 29.4)
-	cpuMin, cpuMax := rangeOrDefault(tc.Power.CPUVoltage, 3.1, 3.5)
-	loadMin, loadMax := rangeOrDefault(tc.Power.LoadCurrent, 0.5, 5.0)
+	p12Min, p12Max := rangeOrDefault(tc.Power.TMAN0104612VVoltage, 12.5, 13.5)
+	bracketMin, bracketMax := rangeOrDefault(tc.Power.TMAN01050Current, 0.0, 3.0)
+	batMin, batMax := rangeOrDefault(tc.Power.TMEZD01095CjBBatteryVolt, 21.0, 29.4)
+	cpuMin, cpuMax := rangeOrDefault(tc.Power.TMEZD01011CjBCPUVolt, 3.1, 3.5)
+	loadMin, loadMax := rangeOrDefault(tc.Power.TMEZD01247LoadCurrent, 0.5, 5.0)
 
 	isFiring := metrics.PowerModule12V < p12Min || metrics.PowerModule12V > p12Max
 	alerts = appendAlert(alerts, sm,
@@ -140,6 +157,14 @@ func CheckPowerThresholdsWithState(metrics *model.PowerMetrics, sm *state.StateM
 		fmt.Sprintf("蓄电池电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.BatteryVoltage, batMin, batMax),
 		fmt.Sprintf("蓄电池电压已恢复正常: %.2fV", metrics.BatteryVoltage),
 		metrics.BatteryVoltage, nil, now)
+
+	isFiring = metrics.Bracket12VCurrent < bracketMin || metrics.Bracket12VCurrent > bracketMax
+	alerts = appendAlert(alerts, sm,
+		"BRACKET_12V_CURRENT_ALERT", "Bracket12VCurrent", isFiring, false,
+		"current_abnormal", "CJB-O2-CS-1",
+		fmt.Sprintf("12V连接机构电流异常: %.2fA (正常[%.2f,%.2f]A)", metrics.Bracket12VCurrent, bracketMin, bracketMax),
+		fmt.Sprintf("12V连接机构电流已恢复正常: %.2fA", metrics.Bracket12VCurrent),
+		metrics.Bracket12VCurrent, nil, now)
 
 	isFiring = metrics.CPUVoltage < cpuMin || metrics.CPUVoltage > cpuMax
 	alerts = appendAlert(alerts, sm,
@@ -211,10 +236,15 @@ func CheckCommThresholds(metrics *model.CommMetrics) []*model.AlertEvent {
 	}
 	tc := config.GetThresholdConfig()
 	var alerts []*model.AlertEvent
-	canExpected := intOrDefault(tc.Comm.CANStatus.Value, 1)
-	serialExpected := intOrDefault(tc.Comm.SerialStatus.Value, 1)
+	serialExpected := intOrDefault(tc.Comm.ComSerialPort.Value, 1)
 
-	if int(metrics.CANStatus) != canExpected {
+	// null 判断框架：后续可在此按配置项逐条扩展规则。
+	// 例如：if !isConfiguredInt(tc.Comm.ComSerialPort.Value) { ... }
+	if !isConfiguredInt(tc.Comm.ComSerialPort.Value) {
+		// 当前保持兼容：未配置时沿用默认值 1。
+	}
+
+	if int(metrics.CANStatus) != 1 {
 		alerts = append(alerts, &model.AlertEvent{
 			AlertID:     fmt.Sprintf("COMM-CAN-%d", time.Now().Unix()),
 			Type:        "CommunicationFailure",
@@ -251,10 +281,10 @@ func CheckActuatorThresholds(metrics *model.ActuatorMetrics) []*model.AlertEvent
 	tc := config.GetThresholdConfig()
 	var alerts []*model.AlertEvent
 
-	expectedX := valueOrDefault(tc.Actuator.WheelSpeed.X.Value, 100)
-	expectedY := valueOrDefault(tc.Actuator.WheelSpeed.Y.Value, 100)
-	expectedZ := valueOrDefault(tc.Actuator.WheelSpeed.Z.Value, 100)
-	tolerance := valueOrDefault(tc.Actuator.WheelSpeedTolerance, 10)
+	expectedX := valueOrDefault(tc.MomentumWheel.WheelSpeed.X.Value, 100)
+	expectedY := valueOrDefault(tc.MomentumWheel.WheelSpeed.Y.Value, 100)
+	expectedZ := valueOrDefault(tc.MomentumWheel.WheelSpeed.Z.Value, 100)
+	tolerance := valueOrDefault(tc.MomentumWheel.WheelSpeedTolerance, 10)
 
 	checkWheel := func(speed int16, axis string, expected float64) {
 		s := float64(speed)
