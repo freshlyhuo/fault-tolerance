@@ -46,7 +46,8 @@ fault-diagnosis/
 │   └── utils/             # 工具包
 │       └── logger.go      # 日志工具
 ├── configs/               # 配置文件
-│   ├── fault_tree_business.json    # 业务层故障树
+│   ├── fault_trees_multi_template.json # 业务层多故障树模板（默认）
+│   ├── fault_tree_business.json    # 单业务故障树示例
 │   └── fault_tree_microservice.json # 微服务层故障树
 └── test/                  # 测试
     └── integration_test.go
@@ -73,6 +74,67 @@ fault-diagnosis/
 ### 4. 诊断输出
 - 生成诊断报告
 - 发送至故障修复模块或告警系统
+
+## 主要函数说明
+
+以下为 fault-diagnosis 模块主链路中的核心函数说明，统一包含：函数名、URL（无则写无）、功能、工作流程（简版）、功能解释。
+
+
+
+
+| 函数名 | URL | 功能 | 工作流程（简版） | 功能解释 |
+|------|-----|------|------------------|----------|
+| LoadFaultTrees | 无 | 加载多故障树配置 | 读取 JSON 文件 -> 校验每棵树 -> 返回故障树列表 | 支持多种配置格式，保证运行时装载灵活性。 |
+
+| NewChannelReceiver | 无 | 创建内存通道接收器 | 初始化通道、上下文、缓冲区与日志 -> 返回接收器 | 资源受限场景下的轻量告警接入实现。 |
+| ChannelReceiver.Start | 无 | 启动告警消费循环 | 校验 handler 已设置 -> 启动消费协程 consume | 接收器运行入口，开始处理告警队列。 |
+| ChannelReceiver.consume | 无 | 持续消费队列中的告警 | 监听停止信号和告警通道 -> 逐条调用 handleAlert | 将异步告警输入转为稳定的串行处理流程。 |
+| ChannelReceiver.SendAlert | 无 | 向队列投递告警 | 非阻塞写入告警通道 -> 队列满时告警并返回错误 | 供外部模块提交告警，具备背压保护。 |
+
+
+| NewMultiDiagnosisEngine | 无 | 初始化多故障树诊断引擎 | 遍历故障树创建单树引擎 -> 构建 alert_id 到引擎列表路由表 | 多树并行诊断入口，支持告警 fanout。 |
+| MultiDiagnosisEngine.ProcessAlert | 无 | 告警路由与并发分发 | 用 alert_id 查路由 -> 并发调用每棵目标树引擎 -> 等待全部完成 | 同一告警可同时触发多棵故障树评估。 |
+| DiagnosisEngine.buildTree | 无 | 构建故障树运行时结构 | 创建基本/中间/顶层节点 -> 建立子节点关系 -> 处理 NOT 前缀节点 | 将静态配置转换为可求值的内存树结构。 |
+| DiagnosisEngine.ProcessAlert | 无 | 处理单条告警并更新事件状态 | 判断 firing/resolved -> alert_id 映射到基本事件 -> 更新状态 -> 调用 diagnose | 告警到诊断的关键入口。 |
+| DiagnosisEngine.diagnose | 无 | 执行顶层故障求值并输出结果 | 遍历顶层事件求值 -> 比较前后状态 -> 生成触发或恢复诊断 -> 回调输出 | 负责状态迁移判断与诊断结果触发。 |
+| generateDiagnosisResult | 无 | 生成标准诊断结果对象 | 基于顶层事件创建 DiagnosisResult -> 收集触发路径和基本事件 | 统一诊断结果格式，便于下游消费。 |
+
+| EvaluateNode | 无 | 递归求值单节点状态 | 基本事件直接读状态 -> 非基本事件按逻辑门调用对应求值函数 | FTA 推理核心入口。 |
+| evaluateAND / evaluateOR / evaluateNOT | 无 | 逻辑门求值 | 递归读取子节点状态 -> 按门规则输出当前节点状态 | 实现故障树逻辑门语义。 |
+| CollectTriggerPath | 无 | 收集触发路径 | 从顶层真值节点递归向下收集已触发节点 | 解释故障因果链路。 |
+| CollectTriggeredBasicEvents | 无 | 收集触发的基本事件 | 从顶层真值节点递归提取 IsBasic 且为真节点 | 输出最小触发证据集合。 |
+| NewStateManagerWithTTL | 无 | 创建带 TTL 的状态管理器 | 初始化状态表和默认 TTL -> 启动过期清理协程 | 保障事件状态随时间自动失效。 |
+| SetState / GetState | 无 | 写入和读取事件状态 | 写入时记录时间和 TTL -> 读取时自动判定过期 | 维护基本事件与中间状态的一致性。 |
+
+### 主要函数相关变量说明
+
+以下变量是主要函数链路中最关键的运行时数据，按“变量名 + 作用”做简要说明。
+
+| 变量名 | 作用 |
+|------|------|
+| configPath | 启动参数中的配置文件路径，决定加载哪份故障树。 |
+| outputPath | 诊断结果输出文件路径，控制是否落盘。 |
+| logger | 全链路日志对象，负责记录启动、路由、诊断和异常信息。 |
+| faultTrees | 从配置文件加载出的故障树集合，是多树引擎初始化输入。 |
+| diagnosisEngine | 多故障树诊断引擎实例，负责告警路由与并发评估。 |
+| alertReceiver | 告警接收器实例，负责从队列接收告警并触发处理函数。 |
+| configPath（Loader.configPath） | Loader 内部保存的配置路径，用于读取 JSON 配置。 |
+| engines | MultiDiagnosisEngine 内部单树引擎列表。 |
+| alertToEngines | alert_id 到目标引擎列表的路由表，支持一条告警命中多棵树。 |
+| faultTree | DiagnosisEngine 绑定的当前故障树配置。 |
+| eventNodes | event_id 到运行时事件节点的索引表，用于快速建树和求值。 |
+| alertToEvent | alert_id 到基本事件 event_id 的映射表，用于把告警映射到树节点。 |
+| topEvents | 顶层事件节点列表，是每轮诊断求值的入口集合。 |
+| stateManager（DiagnosisEngine） | 事件状态管理器，保存基本事件和中间事件状态。 |
+| evaluator | 逻辑门求值器，执行 AND/OR/NOT 规则计算。 |
+| callback | 诊断结果回调函数，触发时将结果输出到日志或下游模块。 |
+| topEventSource / topEventServiceID / topEventServiceName | 顶层事件上下文缓存，用于恢复告警时保留来源和服务信息。 |
+| alertChan | ChannelReceiver 内部告警队列通道。 |
+| alertHandler | 告警处理函数，接收器消费后调用该函数进入诊断流程。 |
+| bufferSize | 接收器队列容量，用于限制告警堆积。 |
+| states（StateManager） | event_id 到状态记录的表，保存事件状态、更新时间和 TTL。 |
+| defaultTTL | 事件默认过期时间，超时后状态会自动清理。 |
+| stopClean | 状态管理器后台清理协程停止信号。 |
 
 ## 配置示例
 
@@ -167,14 +229,25 @@ fault-diagnosis/
 ### 运行
 
 ```bash
-./fault-diagnosis -config ./configs/fault_tree_business.json
+go run ./cmd/diagnosis -config ./configs/fault_trees_multi_template.json
 ```
+
+不传 `-config` 时，默认读取 `./configs/fault_trees_multi_template.json`。
+
+### 多故障树 fanout 行为
+
+- 启动时一次性加载配置中的全部故障树。
+- 收到告警后按 `alert_id` 路由到所有命中的故障树并行评估。
+- 命中多树时会实时逐条回调输出诊断结果。
+- 共享 `alert_id`（跨树）是合法配置；同一棵树内 `event_id` 重复会在启动时 fail-fast。
 
 ### 配置参数
 
 - `-config`: 故障树配置文件路径
-- `-etcd-endpoints`: etcd集群地址（用于接收告警）
+- `-etcd`: etcd集群地址（用于接收告警）
+- `-prefix`: 监听的 etcd 键前缀
 - `-log-level`: 日志级别（debug/info/warn/error）
+- `-output`: 诊断结果输出文件（为空则仅日志输出）
 
 ## 与健康监测模块集成
 

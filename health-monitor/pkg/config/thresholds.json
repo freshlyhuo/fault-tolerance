@@ -41,7 +41,14 @@
       "min": null,
       "max": null,
       "unit": "mA"
-    }
+    },
+    "Communication_power_status":null,
+    "GNSSA_power_status":null,
+    "GNSSB_power_status":null,
+    "Gyroscope_power_status":null,
+    "MEMS_power_status":null,
+    "StarTrackerl_power_status":null,
+    "MomentumWheel_power_status":null
   },
   "thermal": {
     "TMEZD01066-TMEZD01075_ThermalTemps": [
@@ -58,11 +65,11 @@
     ],
     "TMEZD01084_BatteryTemp1": { "value": null, "min": null, "max": null, "unit": "°C" },
     "TMEZD01085_BatteryTemp2": { "value": null, "min": null, "max": null, "unit": "°C" },
-    "SendCmd_PlatformHeatingSwitchON": { "value": null },
+    "PlatformHeatingSwitch_ExpectedState": { "value": null },
     "PlatformThermalTemp": { "value": null, "min": null, "max": null, "unit": "°C" },
-    "SendCmd_BatteryHeatingSwitchON": { "value": null },
+    "BatteryHeatingSwitch_ExpectedState": { "value": null },
     "BatteryThermalTemp": { "value": null, "min": null, "max": null, "unit": "°C" },
-    "SendCmd_TankHeatingSwitchON": { "value": null },
+    "TankHeatingSwitch_ExpectedState": { "value": null },
     "TankThermalTemp": { "value": null, "min": null, "max": null, "unit": "°C" },
     "HeaterSwitchState": {
       "TMEZD01121_PlatformHeater": null,
@@ -71,39 +78,58 @@
     }
   },
   "comm": {
-    "ComSerialPort": { "value": null },
+    "O1_ReceiveDeviceResponseCount": { "value": null },
+    "O1_ReceiveTelemetryResponseCount": { "value": null },
+    "O1_ReceiveRemoteControlResponseCount": { "value": null },
+    "Com_No_telemetry_count": { "value": null },
+    "Com_SoftwareRecInstructionCount": { "value": null },
+    "Com_CorrectRecInstructionCount": { "value": null },
+    "Com_CommandSeriaPortCount": { "value": null },
     "TMEZD01004cjb_InstructionCount": { "value": null },
-    "SendInstruction": { "value": null },
+    "Com_ExpectedState":null,
     "TMEZD01046_CheckErrorCount": { "value": null },
     "TMEZD01047_FrameHeaderErrorCount": { "value": null },
     "TMEZD01048_FrameLengthErrorCount": { "value": null },
     "TMEZD01052_ResetCount": { "value": null },
-    "SendCmd_K52519": { "value": null },
+    "transmission_channel_ExpectedState": { "value": null },
     "TMEZD01155_SwitchState": { "value": null },
     "TMEZD01150_ReceiveCTACount": { "value": null },
-    "TMEZD01145_SNR": { "value": null },
-    "TMEZD01147_ReceiveRSSI": { "value": null },
-    "SendCmd_K50502": { "value": null },
+    "TMEZD01145_SNR":{ "value": null, "min": 0, "max": 127.5, "unit": "dB" },
+    "TMEZD01147_ReceiveRSSI": { "value": null, "min": 0, "max": 127.5, "unit": "dBm" },
+    "Communication_Telemetry_ExpectedState": { "value": null },
     "TMEZD01167_TelemetryEncryptStatus": { "value": null },
-    "SendCmd_K50504": { "value": null },
+    "Communicator_RemoteControl_ExpectedState": { "value": null },
     "TMEZD01168_TelemetryEncryptStatus": { "value": null }
   },
   "AttitudeOrbitControl":{
-    "GNSSSerialPort": { "value": null },
+    "GNSS_No_telemetry_count": { "value": null },
+    "GNSS_SoftwareRecInstructionCount": { "value": null },
+    "GNSS_CorrectRecInstructionCount": { "value": null },
+    "GNSS_CommandSeriaPortCount": { "value": null },
     "TMEZD01041_CheckErrorCount": { "value": null },
     "TMEZD01042_FrameHeaderErrorCount": { "value": null },
     "TMEZD01043_FrameLengthErrorCount": { "value": null },
     "TMEZD01054_ResetCount": { "value": null },
-    "GyroscopeSerialPort": { "value": null },
+    "Gyroscope_No_telemetry_count": { "value": null },
+    "Gyroscope_SoftwareRecInstructionCount": { "value": null },
+    "Gyroscope_CorrectRecInstructionCount": { "value": null },
+    "Gyroscope_CommandSeriaPortCount": { "value": null },
     "TMEZD01021_CheckErrorCount": { "value": null },
     "TMEZD01022_FrameHeaderErrorCount": { "value": null },
     "TMEZD01023_FrameLengthErrorCount": { "value": null },
     "TMEZD01024_ResetCount": { "value": null },
-    "MEMSerialPort": { "value": null },
+    "MEMS_No_telemetry_count": { "value": null },
+    "MEMS_SoftwareRecInstructionCount": { "value": null },
+    "MEMS_CorrectRecInstructionCount": { "value": null },
+    "MEMS_CommandSeriaPortCount": { "value": null },
     "TMEZD01025_CheckErrorCount": { "value": null },
     "TMEZD01026_FrameHeaderErrorCount": { "value": null },
     "TMEZD01027_FrameLengthErrorCount": { "value": null },
     "TMEZD01028_ResetCount": { "value": null },
+    "StarTrackerl_No_telemetry_count": { "value": null },
+    "StarTrackerl_SoftwareRecInstructionCount": { "value": null },
+    "StarTrackerl_CorrectRecInstructionCount": { "value": null },
+    "StarTrackerl_CommandSeriaPortCount": { "value": null },
     "TMEZD01033_CheckErrorCount": { "value": null },
     "TMEZD01034_FrameHeaderErrorCount": { "value": null },
     "TMEZD01035_FrameLengthErrorCount": { "value": null },
@@ -125,17 +151,38 @@
     "TMEZD01013_CheckErrorCount": { "value": null },
     "TMEZD01014_FrameHeaderErrorCount": { "value": null },
     "TMEZD01015_FrameLengthErrorCount": { "value": null },
-    "TMEZD01016_ResetCount": { "value": null }
+    "TMEZD01016_ResetCount": { "value": null },
+    "MomentumWheel_SoftwareRecInstructionCount": { "value": null },
+    "MomentumWheel_CorrectRecInstructionCount": { "value": null },
+    "MomentumWheel_CommandSeriaPortCount": { "value": null }
   },
   "node": {
-    "cpu_usage_max": 85.0,
-    "memory_usage_max": 90.0,
-    "disk_usage_max": 90.0
+    "cpu_usage":{
+      "value": null,
+      "max": 85.0
+    },
+    "memory_usage":{
+      "value": null,
+      "max": 90.0
+    },
+    "disk_usage":{
+      "value": null,
+      "max": 90.0
+    }
   },
   "container": {
-    "cpu_usage_max": 65.0,
-    "memory_usage_max": 80.0,
-    "disk_usage_max": 65.0
+    "cpu_usage": {
+      "value": null,
+      "max": 85.0
+    },
+    "memory_usage": {
+      "value": null,
+      "max": 90.0
+    },
+    "disk_usage": {
+      "value": null,
+      "max": 90.0
+    }
   },
   "service": {
     "require_healthy": true,

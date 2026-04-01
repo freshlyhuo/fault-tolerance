@@ -1,3 +1,6 @@
+//go:build flexible
+// +build flexible
+
 package main
 
 import (

@@ -8,7 +8,7 @@
           "event_id": "T1-TOP-001",
           "name": "CJB-RG-ZD-1",
           "description": "cjb加电异常故障",
-          "fault_code": "TODO: 故障码",
+          "fault_code": "YW-RG-ZD-1",
           "gate_type": "OR",
           "children": ["T1-MID-001", "T1-MID-002"]
         }
@@ -16,87 +16,310 @@
       "intermediate_events": [
         {
           "event_id": "T1-MID-001",
-          "name": "TODO: 中间事件名称1",
-          "description": "TODO: 中间事件描述1",
+          "name": "CC/CV module malfunction",
+          "description": "cjb充放电单元CC/CV模块故障",
           "gate_type": "AND",
-          "children": ["T1-EVT-001", "T1-EVT-002"]
+          "children": ["T1-EVT-001", "NOT-T1-EVT-002"]
         },
         {
           "event_id": "T1-MID-002",
-          "name": "TODO: 中间事件名称2",
-          "description": "TODO: 中间事件描述2",
-          "gate_type": "BASIC",
-          "children": ["T1-EVT-003"]
+          "name": "Satellite DC module malfunction",
+          "description": "星务DC模块故障",
+          "gate_type": "AND",
+          "children": ["NOT-T1-EVT-001", "NOT-T1-EVT-002"]
         }
       ],
       "basic_events": [
         {
           "event_id": "T1-EVT-001",
-          "name": "TODO: 基本事件1",
-          "description": "TODO: 基本事件1描述",
-          "alert_id": "TODO_ALERT_1"
+          "name": "TMAN01050 current less than 1.2A",
+          "description": "TMAN01050 通用连接机构支架d-12V供电电流明显小于2.2A",
+          "alert_id": "YW-power-TMAN01050_Current"
         },
         {
           "event_id": "T1-EVT-002",
-          "name": "TODO: 基本事件2",
-          "description": "TODO: 基本事件2描述",
-          "alert_id": "TODO_ALERT_2"
-        },
-        {
-          "event_id": "T1-EVT-003",
-          "name": "TODO: 基本事件3",
-          "description": "TODO: 基本事件3描述",
-          "alert_id": "TODO_ALERT_3"
+          "name": "TMAN0104612V_Voltage error",
+          "description": "TMAN01046 12V功率模块1电压不在13V左右",
+          "alert_id": "YW-power-TMAN0104612V_Voltage"
         }
       ]
     },
     {
       "fault_tree_id": "TREE-002",
-      "description": "TODO: 故障树2描述",
+      "description": "cjbCAN通信异常",
       "top_events": [
         {
           "event_id": "T2-TOP-001",
-          "name": "TODO: 顶层事件名称",
-          "description": "TODO: 顶层事件描述",
-          "fault_code": "TODO: 故障码",
-          "gate_type": "AND",
-          "children": ["T2-MID-001", "NOT-T2-MID-002"]
+          "name": "CJB-RG-ZD-2",
+          "description": "cjbCAN通信异常",
+          "fault_code": "YW-RG-ZD-2",
+          "gate_type": "BASIC",
+          "children": ["T2-MID-001"]
         }
       ],
       "intermediate_events": [
         {
           "event_id": "T2-MID-001",
-          "name": "TODO: 中间事件名称1",
-          "description": "TODO: 中间事件描述1",
-          "gate_type": "OR",
-          "children": ["T2-EVT-001", "T2-EVT-002"]
-        },
-        {
-          "event_id": "T2-MID-002",
-          "name": "TODO: 中间事件名称2",
-          "description": "TODO: 中间事件描述2",
-          "gate_type": "BASIC",
-          "children": ["T2-EVT-003"]
+          "name": "cjbCAN communication error",
+          "description": "cjbCAN通信异常",
+          "gate_type": "AND",
+          "children": ["NOT-T2-EVT-001", "NOT-T2-EVT-002","T2-EVT-003"]
         }
       ],
       "basic_events": [
         {
           "event_id": "T2-EVT-001",
-          "name": "TODO: 基本事件1",
-          "description": "TODO: 基本事件1描述",
-          "alert_id": "TODO_ALERT_101"
+          "name": "TMAN01050 current less than 1.2A",
+          "description": "TMAN01050 通用连接机构支架d-12V供电电流明显小于2.2A",
+          "alert_id": "YW-power-TMAN01050_Current"
         },
         {
           "event_id": "T2-EVT-002",
-          "name": "TODO: 基本事件2",
-          "description": "TODO: 基本事件2描述",
-          "alert_id": "TODO_ALERT_102"
+          "name": "TMAN0104612V_Voltage error",
+          "description": "TMAN01046 12V功率模块1电压不在13V左右",
+          "alert_id": "YW-power-TMAN0104612V_Voltage"
         },
         {
           "event_id": "T2-EVT-003",
-          "name": "TODO: 基本事件3",
-          "description": "TODO: 基本事件3描述",
-          "alert_id": "TODO_ALERT_103"
+          "name": "CAN communication no response",
+          "description": "CAN通信无应答",
+          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-003",
+      "description": "蓄电池、母线电压遥测异常",
+      "top_events": [
+        {
+          "event_id": "T3-TOP-001",
+          "name": "CJB-RG-ZD-3",
+          "description": "蓄电池、母线电压遥测异常",
+          "fault_code": "YW-RG-ZD-3",
+          "gate_type": "OR",
+          "children": ["T3-MID-002","T3-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T3-MID-001",
+          "name": "Battery and bus voltage abnormal",
+          "description": "蓄电池、母线电压异常",
+          "gate_type": "OR",
+          "children": ["T3-EVT-001","T3-EVT-002"]
+        },
+        {
+          "event_id": "T3-MID-002",
+          "name": "Battery abnormal",
+          "description": "蓄电池异常",
+          "gate_type": "AND",
+          "children": ["T3-MID-001","NOT-T3-EVT-003"]
+        },
+        {
+          "event_id": "T3-MID-003",
+          "name": "AD module exception",
+          "description": "AD模块异常",
+          "gate_type": "AND",
+          "children": ["T3-MID-001","T3-EVT-003"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T3-EVT-001",
+          "name": "TMEZD01095cjb_BatteryVoltage error",
+          "description": "TMEZD01095 cjb-蓄电池电压遥测超出[21,29.4]区间 ",
+          "alert_id": "YW-power-TMEZD01095cjb_BatteryVoltage"
+        },
+        {
+          "event_id": "T3-EVT-002",
+          "name": "TMEZD01096cjb_BusVoltage error",
+          "description": "TMEZD01096 cjb-母线电压遥测超出[21,29.4]区间",
+          "alert_id": "YW-power-TMEZD01096cjb_BusVoltage"
+        },
+        {
+          "event_id": "T3-EVT-003",
+          "name": "TMEZD01011 cjb_CPUVoltage error",
+          "description": "TMEZD01011 cjb-CPU板3.3V电压不在[3.1,3.5]V区间",
+          "alert_id": "YW-power-TMEZD01011cjb_CPUVoltage"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-004",
+      "description": "温度异常遥测异常",
+      "top_events": [
+        {
+          "event_id": "T4-TOP-001",
+          "name": "CJB-RG-ZD-4",
+          "description": "温度异常遥测异常",
+          "fault_code": "YW-RG-ZD-4",
+          "gate_type": "OR",
+          "children": ["T4-MID-001","T4-MID-002","T4-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T4-MID-001",
+          "name": "Temperature abnormal",
+          "description": "温度异常",
+          "gate_type": "OR",
+          "children": ["T4-EVT-001","T4-EVT-002","T4-EVT-003","T4-EVT-004","T4-EVT-005","T4-EVT-006","T4-EVT-007","T4-EVT-008","T4-EVT-009","T4-EVT-010","T4-EVT-011","T4-EVT-012"]
+        },
+        {
+          "event_id": "T4-MID-002",
+          "name": "Thermistor abnormal",
+          "description": "热敏电阻异常",
+          "gate_type": "AND",
+          "children": ["T4-MID-001","T4-EVT-014"]
+        },
+        {
+          "event_id": "T4-MID-003",
+          "name": "AD module exception",
+          "description": "AD模块异常",
+          "gate_type": "AND",
+          "children": ["T4-MID-001","T4-EVT-013"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T4-EVT-001",
+          "name": "TMEZD01066cjb_ThermalTemp error",
+          "description": "TMEZD01066 cjb-热控温度异常",
+          "alert_id": "YW-power-TMEZD01066cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-002",
+          "name": "TMEZD01067cjb_ThermalTemp error",
+          "description": "TMEZD01067 cjb-热控温度异常",
+          "alert_id": "YW-power-TMEZD01067cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-003",
+          "name": "TMEZD01068cjb_ThermalTemp error",
+          "description": "TMEZD01068 cjb-热控温度异常",
+          "alert_id": "YW-power-TMEZD01068cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-004",
+          "name": "TMEZD01069cjb_ThermalTemp error",
+          "description": "TMEZD01069 cjb-热控温度异常",
+          "alert_id": "YW-power-TMEZD01069cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-005",
+          "name": "TMEZD01070cjb_ThermalTemp error",
+          "description": "TMEZD01070 cjb-热控温度异常",
+          "alert_id": "YW-power-TMEZD01070cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-006",
+          "name": "TMEZD01071cjb_ThermalTemp error",
+          "description": "TMEZD01071 cjb-热控温度异常",
+          "alert_id": "YW-power-TMEZD01071cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-007",
+          "name": "TMEZD01072cjb_ThermalTemp error",
+          "description": "TMEZD01072 cjb-热控温度异常",
+          "alert_id": "YW-power-TMEZD01072cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-008",
+          "name": "TMEZD01073cjb_ThermalTemp error",
+          "description": "TMEZD01073 cjb-热控温度异常",
+          "alert_id": "YW-power-TMEZD01073cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-009",
+          "name": "TMEZD01074cjb_ThermalTemp error",
+          "description": "TMEZD01074 cjb-热控温度异常",
+          "alert_id": "YW-power-TMEZD01074cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-010",
+          "name": "TMEZD01075cjb_ThermalTemp error",
+          "description": "TMEZD01075 cjb-热控温度异常",
+          "alert_id": "YW-power-TMEZD01075cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-011",
+          "name": "TMEZD01084_BatteryTemp1 error",
+          "description": "TMEZD01084 cjb-蓄电池温度异常",
+          "alert_id": "YW-power-TMEZD01084_BatteryTemp1"
+        },
+        {
+          "event_id": "T4-EVT-012",
+          "name": "TMEZD01085_BatteryTemp2 error",
+          "description": "TMEZD01085 cjb-蓄电池温度异常",
+          "alert_id": "YW-power-TMEZD01085_BatteryTemp2"
+        },
+        {
+          "event_id": "T4-EVT-013",
+          "name": "TMEZD01011 cjb_CPUVoltage error",
+          "description": "TMEZD01011 cjb-CPU板3.3V电压不在[3.1,3.5]V区间",
+          "alert_id": "YW-power-TMEZD01011cjb_CPUVoltage"
+        },
+        {
+          "event_id": "T4-EVT-014",
+          "name": "TMEZD01100cjb_ThermalRefVoltage error",
+          "description": "TMEZD01100 cjb-热敏基准电压不在[4.5,5.5]区间",
+          "alert_id": "YW-power-TMEZD01100cjb_ThermalRefVoltage"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-005",
+      "description": "平台热控开关打开异常",
+      "top_events": [
+        {
+          "event_id": "T5-TOP-001",
+          "name": "CJB-RG-ZD-5",
+          "description": "平台热控开关打开异常",
+          "fault_code": "YW-RG-ZD-5",
+          "gate_type": "OR",
+          "children": ["T5-MID-001", "T5-MID-002", "T5-MID-003", "T5-EVT-005"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T5-MID-001",
+          "name": "CAN command receive abnormal",
+          "description": "CAN指令接收异常",
+          "gate_type": "AND",
+          "children": ["T5-EVT-001","T5-EVT-003","T5-EVT-004"]
+        },
+        {
+          "event_id": "T5-MID-002",
+          "name": "AD module collect abnormal",
+          "description": "AD模块采集异常",
+          "gate_type": "AND",
+          "children": ["T5-EVT-002", "T5-EVT-003","T5-EVT-004"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T5-EVT-001",
+          "name": "TMEZD01004cjb_InstructionCount not increase",
+          "description": "TMEZD01004接收命令计数未增加",
+          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+        },
+        {
+          "event_id": "T5-EVT-002",
+          "name": "TMEZD01011cjb_CPUVoltage abnormal",
+          "description": "TMEZD01011 CPU板3.3V电压不在[3.1,3.5]V区间",
+          "alert_id": "YW-power-TMEZD01011cjb_CPUVoltage"
+        },
+        {
+          "event_id": "T5-EVT-003",
+          "name": "SendCmd_PlatformHeatingSwitchON",
+          "description": "发送平台加热带总开关开指令",
+          "alert_id": "YW-thermal-SendCmd_PlatformHeatingSwitchON"
+        },
+        {
+          "event_id": "T5-EVT-004",
+          "name": "TMEZD01121_PlatformHeater is 0",
+          "description": "TMEZD01121 cjb-平台加热总开关状态为0 ",
+          "alert_id": "YW-thermal-TMEZD01121_PlatformHeater"
         }
       ]
     }

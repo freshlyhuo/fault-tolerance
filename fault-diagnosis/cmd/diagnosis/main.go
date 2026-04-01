@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"fault-diagnosis/pkg/config"
@@ -18,7 +17,7 @@ import (
 )
 
 var (
-	configPath     = flag.String("config", "./configs/fault_tree_business.json", "故障树配置文件路径")
+	configPath     = flag.String("config", "./configs/fault_trees_multi_template.json", "故障树配置文件路径")
 	etcdEndpoints  = flag.String("etcd", "localhost:2379", "etcd集群地址（逗号分隔）")
 	watchPrefix    = flag.String("prefix", "/alerts/", "监听的etcd键前缀")
 	logLevel       = flag.String("log-level", "info", "日志级别 (debug/info/warn/error)")
@@ -45,20 +44,17 @@ func main() {
 
 	// 加载故障树配置
 	loader := config.NewLoader(*configPath)
-	faultTree, err := loader.LoadFaultTree()
+	faultTrees, err := loader.LoadFaultTrees()
 	if err != nil {
 		logger.Fatal("加载故障树配置失败", zap.Error(err))
 	}
 
 	logger.Info("故障树配置加载成功",
-		zap.String("fault_tree_id", faultTree.FaultTreeID),
-		zap.Int("top_events", len(faultTree.TopEvents)),
-		zap.Int("intermediate_events", len(faultTree.IntermediateEvents)),
-		zap.Int("basic_events", len(faultTree.BasicEvents)),
+		zap.Int("fault_trees", len(faultTrees)),
 	)
 
 	// 创建诊断引擎
-	diagnosisEngine, err := engine.NewDiagnosisEngine(faultTree, logger)
+	diagnosisEngine, err := engine.NewMultiDiagnosisEngine(faultTrees, logger)
 	if err != nil {
 		logger.Fatal("创建诊断引擎失败", zap.Error(err))
 	}
@@ -68,12 +64,8 @@ func main() {
 		handleDiagnosisResult(diagnosis, logger)
 	})
 
-	// 创建告警接收器
-	endpoints := strings.Split(*etcdEndpoints, ",")
-	alertReceiver, err := receiver.NewAlertReceiver(endpoints, *watchPrefix, logger)
-	if err != nil {
-		logger.Fatal("创建告警接收器失败", zap.Error(err))
-	}
+	// 使用内存通道接收器（当前receiver包可用实现）
+	alertReceiver := receiver.NewChannelReceiver(500, logger)
 	defer alertReceiver.Stop()
 
 	// 设置告警处理函数

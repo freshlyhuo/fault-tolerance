@@ -108,13 +108,28 @@ func (l *Loader) validateFaultTree(ft *models.FaultTree) error {
 		return fmt.Errorf("至少需要一个基本事件")
 	}
 
+	seenEventIDs := make(map[string]string)
+
 	// 验证顶层事件
 	for _, event := range ft.TopEvents {
 		if event.EventID == "" {
 			return fmt.Errorf("顶层事件ID不能为空")
 		}
+		if err := validateUniqueEventID(event.EventID, seenEventIDs, "顶层事件"); err != nil {
+			return err
+		}
 		if event.FaultCode == "" {
 			return fmt.Errorf("顶层事件 %s 的故障码不能为空", event.EventID)
+		}
+	}
+
+	// 验证中间事件
+	for _, event := range ft.IntermediateEvents {
+		if event.EventID == "" {
+			return fmt.Errorf("中间事件ID不能为空")
+		}
+		if err := validateUniqueEventID(event.EventID, seenEventIDs, "中间事件"); err != nil {
+			return err
 		}
 	}
 
@@ -124,11 +139,23 @@ func (l *Loader) validateFaultTree(ft *models.FaultTree) error {
 		if event.EventID == "" {
 			return fmt.Errorf("基本事件ID不能为空")
 		}
+		if err := validateUniqueEventID(event.EventID, seenEventIDs, "基本事件"); err != nil {
+			return err
+		}
 		if event.AlertID == "" {
 			return fmt.Errorf("基本事件 %s 的告警ID不能为空", event.EventID)
 		}
 		basicEventIDs[event.EventID] = true
 	}
 
+	return nil
+}
+
+func validateUniqueEventID(eventID string, seen map[string]string, currentType string) error {
+	if previousType, ok := seen[eventID]; ok {
+		return fmt.Errorf("event_id %s 重复：%s 与 %s", eventID, previousType, currentType)
+	}
+
+	seen[eventID] = currentType
 	return nil
 }
