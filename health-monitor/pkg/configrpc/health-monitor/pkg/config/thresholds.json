@@ -1,0 +1,228 @@
+{
+  "_meta": {
+    "active_version": "V4.0",
+    "active_checksum": "8E24D7BB",
+    "updated_at": "2026-04-07T07:29:51Z"
+  },
+  "power": {
+    "TMAN0104612V_Voltage": {
+      "value": null
+    },
+    "TMAN01050_Current": {
+      "value": null
+    },
+    "TMEZD01095cjb_BatteryVoltage": {
+      "value": null
+    },
+    "TMEZD01096cjb_BusVoltage": {
+      "value": null
+    },
+    "TMEZD01011cjb_CPUVoltage": {
+      "value": null
+    },
+    "TMEZD01100cjb_ThermalRefVoltage": {
+      "value": null
+    },
+    "TMEZD01247_LoadCurrent": {
+      "value": null
+    }
+  },
+  "thermal": {
+    "TMEZD01066-TMEZD01075_ThermalTemps": null,
+    "TMEZD01084_BatteryTemp1": {
+      "value": null
+    },
+    "TMEZD01085_BatteryTemp2": {
+      "value": null
+    },
+    "PlatformThermalTemp": {
+      "value": null
+    },
+    "BatteryThermalTemp": {
+      "value": null
+    },
+    "TankThermalTemp": {
+      "value": null
+    },
+    "SendCmd_PlatformHeatingSwitchON": {
+      "value": null
+    },
+    "SendCmd_BatteryHeatingSwitchON": {
+      "value": null
+    },
+    "SendCmd_TankHeatingSwitchON": {
+      "value": null
+    },
+    "HeaterSwitchState": {
+      "TMEZD01121_PlatformHeater": null,
+      "TMEZD01254_BatteryHeater": null,
+      "TMEZD01115_TankHeater": null
+    }
+  },
+  "comm": {
+    "ComSerialPort": {
+      "value": null
+    },
+    "TMEZD01004cjb_InstructionCount": {
+      "value": null
+    },
+    "SendInstruction": {
+      "value": null
+    },
+    "TMEZD01046_CheckErrorCount": {
+      "value": null
+    },
+    "TMEZD01047_FrameHeaderErrorCount": {
+      "value": null
+    },
+    "TMEZD01048_FrameLengthErrorCount": {
+      "value": null
+    },
+    "TMEZD01052_ResetCount": {
+      "value": null
+    },
+    "SendCmd_K52519": {
+      "value": null
+    },
+    "TMEZD01155_SwitchState": {
+      "value": null
+    },
+    "TMEZD01150_ReceiveCTACount": {
+      "value": null
+    },
+    "TMEZD01145_SNR": {
+      "value": null
+    },
+    "TMEZD01147_ReceiveRSSI": {
+      "value": null
+    },
+    "SendCmd_K50502": {
+      "value": null
+    },
+    "TMEZD01167_TelemetryEncryptStatus": {
+      "value": null
+    },
+    "SendCmd_K50504": {
+      "value": null
+    },
+    "TMEZD01168_TelemetryEncryptStatus": {
+      "value": null
+    }
+  },
+  "AttitudeOrbitControl": {
+    "GNSSSerialPort": {
+      "value": null
+    },
+    "TMEZD01041_CheckErrorCount": {
+      "value": null
+    },
+    "TMEZD01042_FrameHeaderErrorCount": {
+      "value": null
+    },
+    "TMEZD01043_FrameLengthErrorCount": {
+      "value": null
+    },
+    "TMEZD01054_ResetCount": {
+      "value": null
+    },
+    "GyroscopeSerialPort": {
+      "value": null
+    },
+    "TMEZD01021_CheckErrorCount": {
+      "value": null
+    },
+    "TMEZD01022_FrameHeaderErrorCount": {
+      "value": null
+    },
+    "TMEZD01023_FrameLengthErrorCount": {
+      "value": null
+    },
+    "TMEZD01024_ResetCount": {
+      "value": null
+    },
+    "MEMSerialPort": {
+      "value": null
+    },
+    "TMEZD01025_CheckErrorCount": {
+      "value": null
+    },
+    "TMEZD01026_FrameHeaderErrorCount": {
+      "value": null
+    },
+    "TMEZD01027_FrameLengthErrorCount": {
+      "value": null
+    },
+    "TMEZD01028_ResetCount": {
+      "value": null
+    },
+    "TMEZD01033_CheckErrorCount": {
+      "value": null
+    },
+    "TMEZD01034_FrameHeaderErrorCount": {
+      "value": null
+    },
+    "TMEZD01035_FrameLengthErrorCount": {
+      "value": null
+    },
+    "TMEZD01036_ResetCount": {
+      "value": null
+    },
+    "TMEZD01037_CheckErrorCount": {
+      "value": null
+    },
+    "TMEZD01038_FrameHeaderErrorCount": {
+      "value": null
+    },
+    "TMEZD01039_FrameLengthErrorCount": {
+      "value": null
+    },
+    "TMEZD01040_ResetCount": {
+      "value": null
+    }
+  },
+  "MomentumWheel": {
+    "MomentumWheelSerialPort": {
+      "value": null
+    },
+    "SendCmd_K53029": {
+      "value": null
+    },
+    "WheelSpeed": {
+      "X": {
+        "value": null
+      },
+      "Y": {
+        "value": null
+      },
+      "Z": {
+        "value": null
+      }
+    },
+    "TMEZD01013_CheckErrorCount": {
+      "value": null
+    },
+    "TMEZD01014_FrameHeaderErrorCount": {
+      "value": null
+    },
+    "TMEZD01015_FrameLengthErrorCount": {
+      "value": null
+    },
+    "TMEZD01016_ResetCount": {
+      "value": null
+    }
+  },
+  "node": {
+    "cpu_usage_max": 16.5,
+    "memory_usage_max": 90,
+    "disk_usage_max": 90
+  },
+  "container": {
+    "cpu_usage_max": 65,
+    "memory_usage_max": 80,
+    "disk_usage_max": 65
+  },
+  "service": {
+    "require_healthy": true,
+    "instance_online_min": 1
+  }
+}

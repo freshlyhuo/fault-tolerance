@@ -134,7 +134,6 @@ func (l *Loader) validateFaultTree(ft *models.FaultTree) error {
 	}
 
 	// 验证基本事件
-	basicEventIDs := make(map[string]bool)
 	for _, event := range ft.BasicEvents {
 		if event.EventID == "" {
 			return fmt.Errorf("基本事件ID不能为空")
@@ -145,7 +144,6 @@ func (l *Loader) validateFaultTree(ft *models.FaultTree) error {
 		if event.AlertID == "" {
 			return fmt.Errorf("基本事件 %s 的告警ID不能为空", event.EventID)
 		}
-		basicEventIDs[event.EventID] = true
 	}
 
 	return nil

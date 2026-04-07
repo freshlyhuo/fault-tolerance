@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -19,7 +20,7 @@ import (
 )
 
 var (
-	configPath     = flag.String("config", "./configs/fault_tree_business.json", "故障树配置文件路径")
+	configPath     = flag.String("config", "./configs/fault_trees_multi_template.json", "故障树配置文件路径")
 	receiverType   = flag.String("receiver", "channel", "接收器类型 (channel/udp/etcd)")
 	
 	// Channel接收器参数
@@ -56,20 +57,17 @@ func main() {
 
 	// 加载故障树配置
 	loader := config.NewLoader(*configPath)
-	faultTree, err := loader.LoadFaultTree()
+	faultTrees, err := loader.LoadFaultTrees()
 	if err != nil {
 		logger.Fatal("加载故障树配置失败", zap.Error(err))
 	}
 
 	logger.Info("故障树配置加载成功",
-		zap.String("fault_tree_id", faultTree.FaultTreeID),
-		zap.Int("top_events", len(faultTree.TopEvents)),
-		zap.Int("intermediate_events", len(faultTree.IntermediateEvents)),
-		zap.Int("basic_events", len(faultTree.BasicEvents)),
+		zap.Int("fault_trees", len(faultTrees)),
 	)
 
 	// 创建诊断引擎
-	diagnosisEngine, err := engine.NewDiagnosisEngine(faultTree, logger)
+	diagnosisEngine, err := engine.NewMultiDiagnosisEngine(faultTrees, logger)
 	if err != nil {
 		logger.Fatal("创建诊断引擎失败", zap.Error(err))
 	}
@@ -87,21 +85,13 @@ func main() {
 		logger.Info("使用Channel接收器（内存队列）", zap.Int("buffer_size", *channelBuffer))
 		alertReceiver = receiver.NewChannelReceiver(*channelBuffer, logger)
 		
-	case "udp":
-		logger.Info("使用UDP接收器", zap.String("address", *udpAddress))
-		alertReceiver = receiver.NewUDPReceiver(*udpAddress, logger)
-		
-	case "etcd":
-		logger.Info("使用etcd接收器",
-			zap.String("endpoints", *etcdEndpoints),
+	case "udp", "etcd":
+		logger.Fatal("当前构建仅支持channel接收器",
+			zap.String("receiver_type", *receiverType),
+			zap.String("udp_addr", *udpAddress),
+			zap.String("etcd", *etcdEndpoints),
 			zap.String("prefix", *watchPrefix),
 		)
-		endpoints := []string{*etcdEndpoints}
-		etcdReceiver, err := receiver.NewEtcdReceiver(endpoints, *watchPrefix, logger)
-		if err != nil {
-			logger.Fatal("创建etcd接收器失败", zap.Error(err))
-		}
-		alertReceiver = etcdReceiver
 		
 	default:
 		logger.Fatal("不支持的接收器类型", zap.String("type", *receiverType))
@@ -138,6 +128,7 @@ func handleDiagnosisResult(diagnosis *models.DiagnosisResult, logger *zap.Logger
 		zap.String("顶层事件", diagnosis.TopEventName),
 		zap.String("故障码", diagnosis.FaultCode),
 		zap.String("故障原因", diagnosis.FaultReason),
+		zap.String("诊断源", diagnosis.Source),
 		zap.Time("诊断时间", diagnosis.Timestamp),
 		zap.Strings("触发路径", diagnosis.TriggerPath),
 		zap.Strings("基本事件", diagnosis.BasicEvents),
@@ -145,6 +136,34 @@ func handleDiagnosisResult(diagnosis *models.DiagnosisResult, logger *zap.Logger
 
 	// 如果指定了输出路径，将诊断结果写入文件
 	if *outputPath != "" {
-		// writeToFile 逻辑保持不变
+		writeToFile(diagnosis, logger)
 	}
+}
+
+// writeToFile 将诊断结果写入文件
+func writeToFile(diagnosis *models.DiagnosisResult, logger *zap.Logger) {
+	data, err := json.MarshalIndent(diagnosis, "", "  ")
+	if err != nil {
+		logger.Error("序列化诊断结果失败", zap.Error(err))
+		return
+	}
+
+	f, err := os.OpenFile(*outputPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		logger.Error("打开输出文件失败", zap.Error(err))
+		return
+	}
+	defer f.Close()
+
+	if _, err := f.Write(data); err != nil {
+		logger.Error("写入诊断结果失败", zap.Error(err))
+		return
+	}
+
+	if _, err := f.WriteString("\n"); err != nil {
+		logger.Error("写入换行符失败", zap.Error(err))
+		return
+	}
+
+	logger.Info("诊断结果已写入文件", zap.String("path", *outputPath))
 }

@@ -1,3 +1,6 @@
+//go:build !flexible
+// +build !flexible
+
 package main
 
 import (
@@ -37,8 +40,6 @@ func main() {
 
 	logger.Info("故障诊断模块启动",
 		zap.String("config", *configPath),
-		zap.String("etcd", *etcdEndpoints),
-		zap.String("watch_prefix", *watchPrefix),
 		zap.String("log_level", *logLevel),
 	)
 

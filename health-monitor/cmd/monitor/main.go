@@ -12,6 +12,7 @@ import (
 
 	//"health-monitor/pkg/alert"
 	"health-monitor/pkg/business"
+	"health-monitor/pkg/configrpc"
 	"health-monitor/pkg/microservice"
 	"health-monitor/pkg/state"
 )
@@ -22,12 +23,19 @@ func main() {
 	interval := flag.Int("interval", 5, "监控采集间隔(秒)")
 	testBusiness := flag.Bool("test-business", false, "测试模式：模拟业务层报文")
 	testInterval := flag.Int("test-interval", 5, "测试模式下报文发送间隔(秒)")
+	enableConfigRPC := flag.Bool("enable-config-rpc", true, "是否启用VSOA配置RPC服务")
+	configRPCAddr := flag.String("config-rpc-addr", "127.0.0.1:3001", "VSOA配置RPC服务监听地址")
 	flag.Parse()
 
 	fmt.Printf("========== 健康监控系统启动 ==========\n")
 	fmt.Printf("容器平台地址: %s\n", *ecsmURL)
 	fmt.Println("存储模式: 纯内存缓存")
 	fmt.Printf("微服务层采集间隔: %d秒\n", *interval)
+	if *enableConfigRPC {
+		fmt.Printf("配置RPC服务: 已启用 (%s)\n", *configRPCAddr)
+	} else {
+		fmt.Println("配置RPC服务: 未启用")
+	}
 	if *testBusiness {
 		fmt.Printf("业务层测试模式: 已启用（报文间隔: %d秒）\n", *testInterval)
 	}
@@ -37,6 +45,24 @@ func main() {
 	// 创建 context，用于优雅关闭
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// 0. 启动配置RPC服务（VSOA）
+	var cfgRPC *configrpc.VSOAServer
+	if *enableConfigRPC {
+		fmt.Println("启动配置RPC服务...")
+		cfgRPC = configrpc.NewVSOAServer(*configRPCAddr, configrpc.NewRuntimeConfigService())
+		if err := cfgRPC.Start(); err != nil {
+			fmt.Printf("❌ 配置RPC服务启动失败: %v\n", err)
+			os.Exit(1)
+		}
+		go func() {
+			select {
+			case err := <-cfgRPC.Errors():
+				fmt.Printf("⚠️  配置RPC服务异常退出: %v\n", err)
+			case <-ctx.Done():
+			}
+		}()
+	}
 
 	// 1. 初始化状态管理器
 	fmt.Println("初始化状态管理器...")
@@ -78,6 +104,11 @@ func main() {
 	<-sigChan
 	fmt.Println("\n收到退出信号，正在关闭...")
 	cancel()
+	if cfgRPC != nil {
+		if err := cfgRPC.Close(); err != nil {
+			fmt.Printf("⚠️  配置RPC服务关闭失败: %v\n", err)
+		}
+	}
 	businessReceiver.Stop()
 	time.Sleep(time.Second)
 	fmt.Println("系统已停止")

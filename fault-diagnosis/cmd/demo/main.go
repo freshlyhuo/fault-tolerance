@@ -22,7 +22,7 @@ func main() {
 
 	fmt.Println("╔════════════════════════════════════════════════════════════╗")
 	fmt.Println("║         故障诊断模块 - 综合测试演示                        ║")
-	fmt.Println("╚════════════════════════════════════════════════════════════╝\n")
+	fmt.Println("╚════════════════════════════════════════════════════════════╝")
 
 	// 选择测试场景
 	fmt.Println("请选择测试场景:")
@@ -42,12 +42,14 @@ func main() {
 		testMicroserviceLayer(logger)
 	case "3":
 		testBusinessLayer(logger)
-		fmt.Println("\n\n")
+		fmt.Println()
+		fmt.Println()
 		testMicroserviceLayer(logger)
 	default:
 		fmt.Println("无效选项，运行全部测试...")
 		testBusinessLayer(logger)
-		fmt.Println("\n\n")
+		fmt.Println()
+		fmt.Println()
 		testMicroserviceLayer(logger)
 	}
 }
@@ -56,7 +58,7 @@ func main() {
 func testBusinessLayer(logger *zap.Logger) {
 	fmt.Println("\n╔════════════════════════════════════════════════════════════╗")
 	fmt.Println("║              业务层故障诊断 - 电源系统测试                  ║")
-	fmt.Println("╚════════════════════════════════════════════════════════════╝\n")
+	fmt.Println("╚════════════════════════════════════════════════════════════╝")
 
 	// 加载业务层故障树
 	loader := config.NewLoader("./configs/fault_tree_business.json")
@@ -85,7 +87,7 @@ func testBusinessLayer(logger *zap.Logger) {
 	fmt.Println("📌 场景 1: 单一告警 - 蓄电池电压异常")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("💡 说明: 仅触发蓄电池电压异常，不满足故障树逻辑")
-	fmt.Println("🎯 预期: 不应触发顶层故障（AND门需要多个条件）\n")
+	fmt.Println("🎯 预期: 不应触发顶层故障（AND门需要多个条件）")
 
 	alert1 := &models.AlertEvent{
 		AlertID:     "BATTERY_VOLTAGE_ALERT",
@@ -102,14 +104,14 @@ func testBusinessLayer(logger *zap.Logger) {
 	}
 	diagnosisEngine.ProcessAlert(alert1)
 	time.Sleep(300 * time.Millisecond)
-	fmt.Println("✓ 场景 1 完成\n")
+	fmt.Println("✓ 场景 1 完成")
 
 	// 场景2: 蓄电池异常（蓄电池 + 母线电压异常）
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("📌 场景 2: 蓄电池故障 - 蓄电池和母线电压同时异常")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("💡 说明: 满足蓄电池异常条件 (EVT-001 AND EVT-002 AND NOT EVT-003)")
-	fmt.Println("🎯 预期: 触发顶层故障 CJB-RG-ZD-3，诊断为蓄电池异常\n")
+	fmt.Println("🎯 预期: 触发顶层故障 CJB-RG-ZD-3，诊断为蓄电池异常")
 
 	alert2 := &models.AlertEvent{
 		AlertID:     "BUS_VOLTAGE_ALERT",
@@ -126,12 +128,12 @@ func testBusinessLayer(logger *zap.Logger) {
 	}
 	diagnosisEngine.ProcessAlert(alert2)
 	time.Sleep(800 * time.Millisecond)
-	fmt.Println("✓ 场景 2 完成\n")
+	fmt.Println("✓ 场景 2 完成")
 
 	// 重置状态
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("🔄 重置所有事件状态...")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	diagnosisEngine.ResetAll()
 	time.Sleep(500 * time.Millisecond)
 
@@ -140,7 +142,7 @@ func testBusinessLayer(logger *zap.Logger) {
 	fmt.Println("📌 场景 3: AD 模块故障 - CPU板电压异常")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("💡 说明: CPU板电压异常可能是AD模块采集错误")
-	fmt.Println("🎯 预期: 触发顶层故障 CJB-RG-ZD-3，诊断为AD模块异常\n")
+	fmt.Println("🎯 预期: 触发顶层故障 CJB-RG-ZD-3，诊断为AD模块异常")
 
 	alert3 := &models.AlertEvent{
 		AlertID:     "CPU_VOLTAGE_ALERT",
@@ -158,10 +160,10 @@ func testBusinessLayer(logger *zap.Logger) {
 	}
 	diagnosisEngine.ProcessAlert(alert3)
 	time.Sleep(800 * time.Millisecond)
-	fmt.Println("✓ 场景 3 完成\n")
+	fmt.Println("✓ 场景 3 完成")
 
 	// 重置状态
-	fmt.Println("🔄 重置状态...\n")
+	fmt.Println("🔄 重置状态...")
 	diagnosisEngine.ResetAll()
 	time.Sleep(300 * time.Millisecond)
 
@@ -170,7 +172,7 @@ func testBusinessLayer(logger *zap.Logger) {
 	fmt.Println("📌 场景 4: 多重故障 - 所有电压异常同时发生")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("💡 说明: 蓄电池、母线、CPU板电压全部异常")
-	fmt.Println("🎯 预期: 优先诊断为AD模块异常（因为存在NOT逻辑）\n")
+	fmt.Println("🎯 预期: 优先诊断为AD模块异常（因为存在NOT逻辑）")
 
 	diagnosisEngine.ProcessAlert(alert1)
 	time.Sleep(100 * time.Millisecond)
@@ -178,7 +180,7 @@ func testBusinessLayer(logger *zap.Logger) {
 	time.Sleep(100 * time.Millisecond)
 	diagnosisEngine.ProcessAlert(alert3)
 	time.Sleep(800 * time.Millisecond)
-	fmt.Println("✓ 场景 4 完成\n")
+	fmt.Println("✓ 场景 4 完成")
 
 	fmt.Println("╔════════════════════════════════════════════════════════════╗")
 	fmt.Println("║           业务层故障诊断测试完成                            ║")
@@ -189,7 +191,7 @@ func testBusinessLayer(logger *zap.Logger) {
 func testMicroserviceLayer(logger *zap.Logger) {
 	fmt.Println("\n╔════════════════════════════════════════════════════════════╗")
 	fmt.Println("║            微服务层故障诊断 - 性能问题测试                  ║")
-	fmt.Println("╚════════════════════════════════════════════════════════════╝\n")
+	fmt.Println("╚════════════════════════════════════════════════════════════╝")
 
 	// 加载微服务层故障树
 	loader := config.NewLoader("./configs/fault_tree_microservice.json")
@@ -218,7 +220,7 @@ func testMicroserviceLayer(logger *zap.Logger) {
 	fmt.Println("📌 场景 1: 容器 CPU 过载")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("💡 说明: 容器CPU使用率达到95%")
-	fmt.Println("🎯 预期: 触发 CPU过载故障 (SVC-PERF-001) 和 容器资源耗尽 (CONTAINER-RESOURCE-001)\n")
+	fmt.Println("🎯 预期: 触发 CPU过载故障 (SVC-PERF-001) 和 容器资源耗尽 (CONTAINER-RESOURCE-001)")
 
 	alertCPU := &models.AlertEvent{
 		AlertID:     "CONTAINER_CPU_HIGH",
@@ -236,14 +238,14 @@ func testMicroserviceLayer(logger *zap.Logger) {
 	}
 	diagnosisEngine.ProcessAlert(alertCPU)
 	time.Sleep(800 * time.Millisecond)
-	fmt.Println("✓ 场景 1 完成\n")
+	fmt.Println("✓ 场景 1 完成")
 
 	// 场景2: CPU波动异常
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("📌 场景 2: CPU 波动异常")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("💡 说明: CPU使用率在短时间内剧烈波动")
-	fmt.Println("🎯 预期: 触发 CPU过载或波动异常 (SVC-PERF-001)\n")
+	fmt.Println("🎯 预期: 触发 CPU过载或波动异常 (SVC-PERF-001)")
 
 	alertFluctuation := &models.AlertEvent{
 		AlertID:     "CONTAINER_CPU_FLUCTUATION",
@@ -261,10 +263,10 @@ func testMicroserviceLayer(logger *zap.Logger) {
 	}
 	diagnosisEngine.ProcessAlert(alertFluctuation)
 	time.Sleep(800 * time.Millisecond)
-	fmt.Println("✓ 场景 2 完成\n")
+	fmt.Println("✓ 场景 2 完成")
 
 	// 重置状态
-	fmt.Println("🔄 重置状态...\n")
+	fmt.Println("🔄 重置状态...")
 	diagnosisEngine.ResetAll()
 	time.Sleep(300 * time.Millisecond)
 
@@ -273,7 +275,7 @@ func testMicroserviceLayer(logger *zap.Logger) {
 	fmt.Println("📌 场景 3: 容器内存耗尽")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("💡 说明: 容器内存使用率达到92%")
-	fmt.Println("🎯 预期: 触发 容器资源耗尽 (CONTAINER-RESOURCE-001)\n")
+	fmt.Println("🎯 预期: 触发 容器资源耗尽 (CONTAINER-RESOURCE-001)")
 
 	alertMemory := &models.AlertEvent{
 		AlertID:     "CONTAINER_MEMORY_HIGH",
@@ -292,10 +294,10 @@ func testMicroserviceLayer(logger *zap.Logger) {
 	}
 	diagnosisEngine.ProcessAlert(alertMemory)
 	time.Sleep(800 * time.Millisecond)
-	fmt.Println("✓ 场景 3 完成\n")
+	fmt.Println("✓ 场景 3 完成")
 
 	// 重置状态
-	fmt.Println("🔄 重置状态...\n")
+	fmt.Println("🔄 重置状态...")
 	diagnosisEngine.ResetAll()
 	time.Sleep(300 * time.Millisecond)
 
@@ -304,7 +306,7 @@ func testMicroserviceLayer(logger *zap.Logger) {
 	fmt.Println("📌 场景 4: 服务级联故障")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("💡 说明: CPU和内存同时达到阈值，触发级联故障")
-	fmt.Println("🎯 预期: 同时触发多个顶层故障，包括服务级联故障 (SVC-CASCADE-001)\n")
+	fmt.Println("🎯 预期: 同时触发多个顶层故障，包括服务级联故障 (SVC-CASCADE-001)")
 
 	// 先触发CPU告警
 	diagnosisEngine.ProcessAlert(alertCPU)
@@ -313,7 +315,7 @@ func testMicroserviceLayer(logger *zap.Logger) {
 	// 再触发内存告警
 	diagnosisEngine.ProcessAlert(alertMemory)
 	time.Sleep(1000 * time.Millisecond)
-	fmt.Println("✓ 场景 4 完成\n")
+	fmt.Println("✓ 场景 4 完成")
 
 	fmt.Println("╔════════════════════════════════════════════════════════════╗")
 	fmt.Println("║          微服务层故障诊断测试完成                           ║")
@@ -332,5 +334,5 @@ func printDiagnosisResult(diagnosis *models.DiagnosisResult) {
 	fmt.Printf("⏰ 诊断时间:   %s\n", diagnosis.Timestamp.Format("2006-01-02 15:04:05"))
 	fmt.Printf("🔍 触发路径:   %v\n", diagnosis.TriggerPath)
 	fmt.Printf("🎯 基本事件:   %v\n", diagnosis.BasicEvents)
-	fmt.Println(strings.Repeat("═", 70) + "\n")
+	fmt.Println(strings.Repeat("═", 70))
 }

@@ -1,9 +1,16 @@
 package config
 
 import (
+	"errors"
 	"encoding/json"
+	"fmt"
+	"hash/crc32"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 )
 
 type MetricThreshold struct {
@@ -141,8 +148,33 @@ type ThresholdConfig struct {
 
 var (
 	thresholdOnce sync.Once
+	thresholdMu   sync.RWMutex
 	thresholdCfg  *ThresholdConfig
+	thresholdMeta ThresholdConfigStatus
+	thresholdPath string
 )
+
+var (
+	ErrChecksumMismatch = errors.New("checksum mismatch")
+	ErrConfigParse      = errors.New("config parse error")
+)
+
+// ThresholdConfigStatus 表示当前生效配置版本与校验和。
+type ThresholdConfigStatus struct {
+	CurrentVersion  string `json:"current_version"`
+	CurrentChecksum string `json:"current_checksum"`
+}
+
+type ThresholdFileMeta struct {
+	ActiveVersion  string `json:"active_version"`
+	ActiveChecksum string `json:"active_checksum"`
+	UpdatedAt      string `json:"updated_at"`
+}
+
+type thresholdPersistedFile struct {
+	Meta ThresholdFileMeta `json:"_meta"`
+	ThresholdConfig
+}
 
 func defaultThresholdConfig() *ThresholdConfig {
 	cfg := &ThresholdConfig{}
@@ -170,20 +202,227 @@ func candidateThresholdPaths() []string {
 	}
 }
 
+func initializeThresholdConfig() {
+	cfg := defaultThresholdConfig()
+	meta := ThresholdConfigStatus{CurrentVersion: "DEFAULT"}
+	activePath := ""
+	legacyFileLoaded := false
+
+	for _, p := range candidateThresholdPaths() {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		if err := json.Unmarshal(b, cfg); err != nil {
+			continue
+		}
+		if fileMeta, ok := extractStatusFromPersistedMeta(b); ok {
+			meta = fileMeta
+		} else {
+			meta.CurrentVersion = "BOOTSTRAP"
+			if cfgChecksum, err := checksumForConfig(cfg); err == nil {
+				meta.CurrentChecksum = cfgChecksum
+			} else {
+				meta.CurrentChecksum = formatCRC32Hex(crc32.ChecksumIEEE(b))
+			}
+			legacyFileLoaded = true
+		}
+		activePath = p
+		break
+	}
+
+	if meta.CurrentChecksum == "" {
+		if b, err := json.Marshal(cfg); err == nil {
+			meta.CurrentChecksum = formatCRC32Hex(crc32.ChecksumIEEE(b))
+		}
+	}
+
+	thresholdMu.Lock()
+	thresholdCfg = cfg
+	thresholdMeta = meta
+	thresholdPath = activePath
+	thresholdMu.Unlock()
+
+	if activePath != "" && legacyFileLoaded {
+		_ = persistThresholdConfig(activePath, cfg, meta)
+	}
+}
+
+func checksumForConfig(cfg *ThresholdConfig) (string, error) {
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+	return formatCRC32Hex(crc32.ChecksumIEEE(b)), nil
+}
+
+func extractStatusFromPersistedMeta(raw []byte) (ThresholdConfigStatus, bool) {
+	var m struct {
+		Meta ThresholdFileMeta `json:"_meta"`
+	}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ThresholdConfigStatus{}, false
+	}
+	if m.Meta.ActiveVersion == "" || m.Meta.ActiveChecksum == "" {
+		return ThresholdConfigStatus{}, false
+	}
+	return ThresholdConfigStatus{
+		CurrentVersion:  m.Meta.ActiveVersion,
+		CurrentChecksum: normalizeChecksumToken(m.Meta.ActiveChecksum),
+	}, true
+}
+
+func resolveThresholdWritePath() string {
+	for _, p := range candidateThresholdPaths() {
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			return p
+		}
+	}
+	candidates := candidateThresholdPaths()
+	if len(candidates) > 0 {
+		return candidates[0]
+	}
+	return "./thresholds.json"
+}
+
+func persistThresholdConfig(path string, cfg *ThresholdConfig, status ThresholdConfigStatus) error {
+	if cfg == nil {
+		return fmt.Errorf("threshold config is nil")
+	}
+
+	payload := thresholdPersistedFile{
+		Meta: ThresholdFileMeta{
+			ActiveVersion:  status.CurrentVersion,
+			ActiveChecksum: status.CurrentChecksum,
+			UpdatedAt:      time.Now().UTC().Format(time.RFC3339),
+		},
+		ThresholdConfig: *cfg,
+	}
+
+	b, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal threshold file: %w", err)
+	}
+
+	dir := filepath.Dir(path)
+	if dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("create threshold dir: %w", err)
+		}
+	}
+
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+		return fmt.Errorf("write threshold temp file: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return fmt.Errorf("replace threshold file: %w", err)
+	}
+
+	return nil
+}
+
+func formatCRC32Hex(v uint32) string {
+	return fmt.Sprintf("%08X", v)
+}
+
+func normalizeChecksumToken(s string) string {
+	v := strings.TrimSpace(strings.ToUpper(s))
+	v = strings.TrimPrefix(v, "0X")
+	return v
+}
+
+func checksumMatched(data []byte, provided string) bool {
+	provided = normalizeChecksumToken(provided)
+	if provided == "" {
+		return false
+	}
+
+	actual := crc32.ChecksumIEEE(data)
+	if provided == formatCRC32Hex(actual) {
+		return true
+	}
+
+	if u, err := strconv.ParseUint(provided, 16, 32); err == nil && uint32(u) == actual {
+		return true
+	}
+
+	if u, err := strconv.ParseUint(provided, 10, 32); err == nil && uint32(u) == actual {
+		return true
+	}
+
+	return false
+}
+
 // GetThresholdConfig 获取阈值配置（进程内懒加载）
 // 未找到配置文件或解析失败时自动回退到默认值。
 func GetThresholdConfig() *ThresholdConfig {
 	thresholdOnce.Do(func() {
-		cfg := defaultThresholdConfig()
-		for _, p := range candidateThresholdPaths() {
-			b, err := os.ReadFile(p)
-			if err != nil {
-				continue
-			}
-			_ = json.Unmarshal(b, cfg)
-			break
-		}
-		thresholdCfg = cfg
+		initializeThresholdConfig()
 	})
+	thresholdMu.RLock()
+	defer thresholdMu.RUnlock()
 	return thresholdCfg
+}
+
+// UpdateThresholdConfig 运行时更新阈值配置。
+func UpdateThresholdConfig(version, checksum, configData string) error {
+	thresholdOnce.Do(func() {
+		initializeThresholdConfig()
+	})
+
+	raw := []byte(configData)
+	if !checksumMatched(raw, checksum) {
+		return ErrChecksumMismatch
+	}
+
+	cfg := defaultThresholdConfig()
+	if err := json.Unmarshal(raw, cfg); err != nil {
+		return ErrConfigParse
+	}
+
+	status := ThresholdConfigStatus{
+		CurrentVersion:  version,
+		CurrentChecksum: formatCRC32Hex(crc32.ChecksumIEEE(raw)),
+	}
+
+	thresholdMu.RLock()
+	path := thresholdPath
+	thresholdMu.RUnlock()
+	if path == "" {
+		path = resolveThresholdWritePath()
+	}
+
+	if err := persistThresholdConfig(path, cfg, status); err != nil {
+		return fmt.Errorf("persist threshold config failed: %w", err)
+	}
+
+	thresholdMu.Lock()
+	thresholdCfg = cfg
+	thresholdMeta = status
+	thresholdPath = path
+	thresholdMu.Unlock()
+
+	return nil
+}
+
+// GetThresholdConfigStatus 返回当前生效配置状态。
+func GetThresholdConfigStatus() ThresholdConfigStatus {
+	thresholdOnce.Do(func() {
+		initializeThresholdConfig()
+	})
+
+	thresholdMu.RLock()
+	defer thresholdMu.RUnlock()
+	return thresholdMeta
+}
+
+// ResetThresholdCachesForTest resets threshold runtime caches for isolated tests.
+func ResetThresholdCachesForTest() {
+	thresholdMu.Lock()
+	defer thresholdMu.Unlock()
+	thresholdOnce = sync.Once{}
+	thresholdCfg = nil
+	thresholdMeta = ThresholdConfigStatus{}
+	thresholdPath = ""
 }

@@ -1,4 +1,9 @@
 {
+  "_meta": {
+    "active_version": "V1.0",
+    "active_checksum": "2B69E0C8",
+    "updated_at": "2026-04-07T14:30:00Z"
+  },
   "power": {
     "TMAN0104612V_Voltage": {
       "value": null,
