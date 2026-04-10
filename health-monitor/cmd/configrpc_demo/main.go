@@ -13,6 +13,12 @@ import (
 	"github.com/acoinfo/vsoa/protocol"
 )
 
+type updateDemoCase struct {
+	Name               string
+	Request            configrpc.UpdateConfigRequest
+	ExpectedStatusCode int
+}
+
 func main() {
 	addr := flag.String("addr", "127.0.0.1:3001", "VSOA server address")
 	moduleName := flag.String("module", configrpc.DefaultModuleName, "target module name")
@@ -28,35 +34,28 @@ func main() {
 		os.Exit(1)
 	}
 
-	updateReq := configrpc.UpdateConfigRequest{
-		ModuleName: *moduleName,
-		Version:    *version,
-		Checksum:   fmt.Sprintf("%08X", crc32.ChecksumIEEE([]byte(*configData))),
-		ConfigData: *configData,
+	demoCases := buildUpdateDemoCases(*moduleName, *version, *configData)
+	for i, demoCase := range demoCases {
+		fmt.Printf("\n=== Case %d: %s ===\n", i+1, demoCase.Name)
+		requestBody := mustJSON(demoCase.Request)
+		printJSONBytes("update_config_rpc request", requestBody)
+
+		updateResp, responseBody, err := callUpdateConfigRPC(cli, requestBody)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "update rpc failed in case %q: %v\n", demoCase.Name, err)
+			os.Exit(1)
+		}
+
+		printJSONBytes("update_config_rpc response", responseBody)
+		fmt.Printf("expected status_code=%d, actual=%d\n", demoCase.ExpectedStatusCode, updateResp.StatusCode)
 	}
 
-	updateMsg := protocol.NewMessage()
-	updateMsg.Param = mustJSON(updateReq)
-
-	updateReply, err := cli.Call(
-		configrpc.UpdateConfigRPCPath,
-		protocol.TypeRPC,
-		protocol.RpcMethodSet,
-		updateMsg,
-	)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "update rpc failed: %v\n", err)
-		os.Exit(1)
-	}
-
-	var updateResp configrpc.UpdateConfigResponse
-	if err := json.Unmarshal(updateReply.Param, &updateResp); err != nil {
-		fmt.Fprintf(os.Stderr, "decode update response failed: %v\n", err)
-		os.Exit(1)
-	}
-	printJSON("update_config_rpc response", updateResp)
+	statusReq := configrpc.GetStatusRequest{ModuleName: *moduleName}
+	statusReqBody := mustJSON(statusReq)
+	printJSONBytes("get_status_rpc request", statusReqBody)
 
 	statusMsg := protocol.NewMessage()
+	statusMsg.Param = statusReqBody
 	statusReply, err := cli.Call(
 		configrpc.GetStatusRPCPath,
 		protocol.TypeRPC,
@@ -73,7 +72,71 @@ func main() {
 		fmt.Fprintf(os.Stderr, "decode status response failed: %v\n", err)
 		os.Exit(1)
 	}
-	printJSON("get_status_rpc response", statusResp)
+	printJSONBytes("get_status_rpc response", statusReply.Param)
+	printJSON("get_status_rpc response (decoded)", statusResp)
+}
+
+func buildUpdateDemoCases(moduleName, baseVersion, validConfig string) []updateDemoCase {
+	brokenConfig := `{"node":{"cpu_usage_max":`
+
+	return []updateDemoCase{
+		{
+			Name: "status_code=0 success",
+			Request: configrpc.UpdateConfigRequest{
+				ModuleName: moduleName,
+				Version:    baseVersion + "-ok",
+				Checksum:   checksumHex(validConfig),
+				ConfigData: validConfig,
+			},
+			ExpectedStatusCode: configrpc.StatusCodeSuccess,
+		},
+		{
+			Name: "status_code=1 checksum mismatch",
+			Request: configrpc.UpdateConfigRequest{
+				ModuleName: moduleName,
+				Version:    baseVersion + "-checksum",
+				Checksum:   "BAD-CHECKSUM",
+				ConfigData: validConfig,
+			},
+			ExpectedStatusCode: configrpc.StatusCodeChecksumError,
+		},
+		{
+			Name: "status_code=2 config parse error",
+			Request: configrpc.UpdateConfigRequest{
+				ModuleName: moduleName,
+				Version:    baseVersion + "-parse",
+				Checksum:   checksumHex(brokenConfig),
+				ConfigData: brokenConfig,
+			},
+			ExpectedStatusCode: configrpc.StatusCodeParseError,
+		},
+	}
+}
+
+func callUpdateConfigRPC(cli *client.Client, requestBody []byte) (configrpc.UpdateConfigResponse, []byte, error) {
+	updateMsg := protocol.NewMessage()
+	updateMsg.Param = requestBody
+
+	updateReply, err := cli.Call(
+		configrpc.UpdateConfigRPCPath,
+		protocol.TypeRPC,
+		protocol.RpcMethodSet,
+		updateMsg,
+	)
+	if err != nil {
+		return configrpc.UpdateConfigResponse{}, nil, err
+	}
+
+	var updateResp configrpc.UpdateConfigResponse
+	if err := json.Unmarshal(updateReply.Param, &updateResp); err != nil {
+		return configrpc.UpdateConfigResponse{}, updateReply.Param, err
+	}
+
+	return updateResp, updateReply.Param, nil
+}
+
+func checksumHex(v string) string {
+	return fmt.Sprintf("%08X", crc32.ChecksumIEEE([]byte(v)))
 }
 
 func mustJSON(v interface{}) []byte {
@@ -91,4 +154,18 @@ func printJSON(title string, v interface{}) {
 		return
 	}
 	fmt.Printf("%s:\n%s\n", title, string(b))
+}
+
+func printJSONBytes(title string, raw []byte) {
+	if len(raw) == 0 {
+		fmt.Printf("%s: <empty>\n", title)
+		return
+	}
+
+	var decoded interface{}
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		fmt.Printf("%s: %s\n", title, string(raw))
+		return
+	}
+	printJSON(title, decoded)
 }
