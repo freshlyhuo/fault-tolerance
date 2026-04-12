@@ -1,4 +1,5 @@
 {
+  "version": "V2.1",
   "fault_trees": [
     {
       "fault_tree_id": "TREE-001",

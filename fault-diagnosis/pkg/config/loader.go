@@ -13,9 +13,16 @@ type Loader struct {
 	configPath string
 }
 
+// FaultTreeConfig 表示故障树配置文件内容（含顶层版本号）。
+type FaultTreeConfig struct {
+	Version   string              `json:"version"`
+	FaultTrees []*models.FaultTree `json:"fault_trees"`
+}
+
 // FaultTreeCollection 多故障树配置（对象包装格式）
-// 示例：{"fault_trees": [{...}, {...}]}
+// 示例：{"version":"V2.1", "fault_trees": [{...}, {...}]}
 type FaultTreeCollection struct {
+	Version    string             `json:"version"`
 	FaultTrees []models.FaultTree `json:"fault_trees"`
 }
 
@@ -40,12 +47,12 @@ func (l *Loader) LoadFaultTree() (*models.FaultTree, error) {
 	return faultTrees[0], nil
 }
 
-// LoadFaultTrees 加载一个或多个故障树配置
+// LoadFaultTreeConfig 加载故障树配置（含顶层version）。
 // 支持三种JSON格式：
-// 1) 单树对象：{...}
-// 2) 数组：[{...}, {...}]
-// 3) 包装对象：{"fault_trees":[{...},{...}]}
-func (l *Loader) LoadFaultTrees() ([]*models.FaultTree, error) {
+// 1) 包装对象：{"version":"V2.1", "fault_trees":[{...},{...}]}
+// 2) 数组：[{...}, {...}]（version为空）
+// 3) 单树对象：{...}（version为空）
+func (l *Loader) LoadFaultTreeConfig() (*FaultTreeConfig, error) {
 	// 读取配置文件
 	data, err := os.ReadFile(l.configPath)
 	if err != nil {
@@ -63,7 +70,7 @@ func (l *Loader) LoadFaultTrees() ([]*models.FaultTree, error) {
 			}
 			result = append(result, ft)
 		}
-		return result, nil
+		return &FaultTreeConfig{Version: collection.Version, FaultTrees: result}, nil
 	}
 
 	// 再尝试数组格式
@@ -77,7 +84,7 @@ func (l *Loader) LoadFaultTrees() ([]*models.FaultTree, error) {
 			}
 			result = append(result, ft)
 		}
-		return result, nil
+		return &FaultTreeConfig{FaultTrees: result}, nil
 	}
 
 	// 最后尝试单树对象格式
@@ -91,7 +98,21 @@ func (l *Loader) LoadFaultTrees() ([]*models.FaultTree, error) {
 		return nil, fmt.Errorf("配置验证失败: %w", err)
 	}
 
-	return []*models.FaultTree{&faultTree}, nil
+	return &FaultTreeConfig{FaultTrees: []*models.FaultTree{&faultTree}}, nil
+}
+
+// LoadFaultTrees 加载一个或多个故障树配置
+// 支持三种JSON格式：
+// 1) 单树对象：{...}
+// 2) 数组：[{...}, {...}]
+// 3) 包装对象：{"fault_trees":[{...},{...}]}
+func (l *Loader) LoadFaultTrees() ([]*models.FaultTree, error) {
+	configData, err := l.LoadFaultTreeConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return configData.FaultTrees, nil
 }
 
 // validateFaultTree 验证故障树配置

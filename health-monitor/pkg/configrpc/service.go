@@ -18,7 +18,6 @@ const (
 	StatusCodeSuccess       = 0
 	StatusCodeChecksumError = 1
 	StatusCodeParseError    = 2
-	StatusCodeInternalError = 3
 )
 
 type UpdateConfigRequest struct {
@@ -42,18 +41,44 @@ type GetStatusResponse struct {
 	CurrentChecksum string `json:"current_checksum"`
 }
 
+type thresholdConfigUpdater interface {
+	UpdateThresholdConfig(version, checksum, configData string) error
+	GetThresholdConfigStatus() config.ThresholdConfigStatus
+}
+
+type defaultThresholdConfigUpdater struct{}
+
+func (defaultThresholdConfigUpdater) UpdateThresholdConfig(version, checksum, configData string) error {
+	return config.UpdateThresholdConfig(version, checksum, configData)
+}
+
+func (defaultThresholdConfigUpdater) GetThresholdConfigStatus() config.ThresholdConfigStatus {
+	return config.GetThresholdConfigStatus()
+}
+
 type RuntimeConfigService struct {
 	moduleName string
+	updater    thresholdConfigUpdater
 }
 
 func NewRuntimeConfigService() *RuntimeConfigService {
-	return &RuntimeConfigService{moduleName: DefaultModuleName}
+	return NewRuntimeConfigServiceWithUpdater(defaultThresholdConfigUpdater{})
+}
+
+func NewRuntimeConfigServiceWithUpdater(updater thresholdConfigUpdater) *RuntimeConfigService {
+	if updater == nil {
+		updater = defaultThresholdConfigUpdater{}
+	}
+	return &RuntimeConfigService{
+		moduleName: DefaultModuleName,
+		updater:    updater,
+	}
 }
 
 func (s *RuntimeConfigService) HandleUpdateConfigPayload(payload []byte) UpdateConfigResponse {
-	current := config.GetThresholdConfigStatus()
+	current := s.updater.GetThresholdConfigStatus()
 	resp := UpdateConfigResponse{
-		StatusCode:    StatusCodeInternalError,
+		StatusCode:    StatusCodeParseError,
 		ActiveVersion: current.CurrentVersion,
 	}
 
@@ -64,14 +89,14 @@ func (s *RuntimeConfigService) HandleUpdateConfigPayload(payload []byte) UpdateC
 	}
 
 	if req.ModuleName != s.moduleName || req.Version == "" || req.Checksum == "" || req.ConfigData == "" {
-		resp.StatusCode = StatusCodeInternalError
+		resp.StatusCode = StatusCodeParseError
 		return resp
 	}
 
-	err := config.UpdateThresholdConfig(req.Version, req.Checksum, req.ConfigData)
+	err := s.updater.UpdateThresholdConfig(req.Version, req.Checksum, req.ConfigData)
 	switch {
 	case err == nil:
-		latest := config.GetThresholdConfigStatus()
+		latest := s.updater.GetThresholdConfigStatus()
 		resp.StatusCode = StatusCodeSuccess
 		resp.ActiveVersion = latest.CurrentVersion
 		return resp
@@ -82,7 +107,7 @@ func (s *RuntimeConfigService) HandleUpdateConfigPayload(payload []byte) UpdateC
 		resp.StatusCode = StatusCodeParseError
 		return resp
 	default:
-		resp.StatusCode = StatusCodeInternalError
+		resp.StatusCode = StatusCodeParseError
 		return resp
 	}
 }
@@ -94,7 +119,7 @@ func (s *RuntimeConfigService) HandleGetStatusPayload(payload []byte) GetStatusR
 		_ = json.Unmarshal(payload, &req)
 	}
 
-	status := config.GetThresholdConfigStatus()
+	status := s.updater.GetThresholdConfigStatus()
 	return GetStatusResponse{
 		CurrentVersion:  status.CurrentVersion,
 		CurrentChecksum: status.CurrentChecksum,

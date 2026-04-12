@@ -40,12 +40,9 @@ func (s *VSOAServer) Start() error {
 		return nil
 	}
 
-	srv := vsoaServer.NewServer("health_monitor_config_rpc", vsoaServer.Option{})
+	srv := vsoaServer.NewServer("fault_diagnosis_config_rpc", vsoaServer.Option{})
 	if err := srv.On(UpdateConfigRPCPath, vsoaProtocol.RpcMethodSet, s.handleUpdateConfigRPC); err != nil {
 		return fmt.Errorf("register update_config_rpc listener failed: %w", err)
-	}
-	if err := srv.On(GetStatusRPCPath, vsoaProtocol.RpcMethodGet, s.handleGetStatusRPC); err != nil {
-		return fmt.Errorf("register get_status_rpc listener failed: %w", err)
 	}
 
 	s.server = srv
@@ -79,13 +76,6 @@ func (s *VSOAServer) Errors() <-chan error {
 func (s *VSOAServer) handleUpdateConfigRPC(req, res *vsoaProtocol.Message) {
 	payload := decodeRequestPayload(req)
 	resp := s.service.HandleUpdateConfigPayload(payload)
-	res.Param = encodeResponsePayload(resp)
-	res.Data = nil
-}
-
-func (s *VSOAServer) handleGetStatusRPC(req, res *vsoaProtocol.Message) {
-	payload := decodeRequestPayload(req)
-	resp := s.service.HandleGetStatusPayload(payload)
 	res.Param = encodeResponsePayload(resp)
 	res.Data = nil
 }
