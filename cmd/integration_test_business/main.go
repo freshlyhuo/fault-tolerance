@@ -54,17 +54,11 @@ func main() {
 		logger.Fatal("创建业务层诊断引擎失败", zap.Error(err))
 	}
 
-	// 创建故障修复引擎
-	recoveryState := recovery.NewInMemoryStateManager()
-	recoveryEngine := recovery.NewEngine(recoveryState, recovery.NewEngineConfig{
+	// 创建故障修复接收层（内部对象输入，不走 HTTP）
+	recoveryReceive := recovery.NewReceiveService(recovery.ReceiveConfig{
 		QueueSize: 200,
-		Timeout:   20 * time.Second,
 	})
-	recoveryStore := recovery.NewRuntimeStore()
-	// 业务层故障码统一走创建服务
-	recoveryEngine.RegisterAction("CJB-RG-ZD-3", recovery.NewStartContainerAction(recoveryStore))
-	recoveryEngine.RegisterPrefixAction("YW", recovery.NewStartContainerAction(recoveryStore))
-	recoveryEngine.Start(ctx)
+	recoveryReceive.Start(ctx)
 
 	// 设置诊断回调
 	businessEngine.SetCallback(func(diagnosis *diagnosisModels.DiagnosisResult) {
@@ -80,7 +74,7 @@ func main() {
 			fmt.Println(strings.Repeat("═", 70))
 			printDiagnosis(diagnosis)
 		}
-		_ = recoveryEngine.Submit(convertToRecoveryDiagnosis(diagnosis))
+		_ = recoveryReceive.Submit(convertToRecoveryDiagnosis(diagnosis))
 	})
 
 	// 创建告警接收器

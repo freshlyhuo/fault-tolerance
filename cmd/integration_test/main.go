@@ -78,16 +78,11 @@ func main() {
 		logger.Fatal("创建微服务层诊断引擎失败", zap.Error(err))
 	}
 
-	// 创建故障修复引擎
-	recoveryState := recovery.NewInMemoryStateManager()
-	recoveryEngine := recovery.NewEngine(recoveryState, recovery.NewEngineConfig{
+	// 创建故障修复接收层（内部对象输入，不走 HTTP）
+	recoveryReceive := recovery.NewReceiveService(recovery.ReceiveConfig{
 		QueueSize: 200,
-		Timeout:   10 * time.Second,
 	})
-	recoveryStore := recovery.NewRuntimeStore()
-	recoveryEngine.RegisterAction("CONTAINER-RESOURCE-001", recovery.NewCircuitBreakerAction(recoveryStore))
-	recoveryEngine.RegisterAction("BUSINESS-IMAGE-START", recovery.NewStartContainerAction(recoveryStore))
-	recoveryEngine.Start(ctx)
+	recoveryReceive.Start(ctx)
 
 	// 设置诊断回调
 	businessEngine.SetCallback(func(diagnosis *diagnosisModels.DiagnosisResult) {
@@ -95,7 +90,7 @@ func main() {
 		fmt.Println("[业务层] 检测到故障!")
 		fmt.Println(strings.Repeat("═", 70))
 		printDiagnosis(diagnosis)
-		_ = recoveryEngine.Submit(convertToRecoveryDiagnosis(diagnosis))
+		_ = recoveryReceive.Submit(convertToRecoveryDiagnosis(diagnosis))
 	})
 
 	microserviceEngine.SetCallback(func(diagnosis *diagnosisModels.DiagnosisResult) {
@@ -103,7 +98,7 @@ func main() {
 		fmt.Println("[微服务层] 检测到故障!")
 		fmt.Println(strings.Repeat("═", 70))
 		printDiagnosis(diagnosis)
-		_ = recoveryEngine.Submit(convertToRecoveryDiagnosis(diagnosis))
+		_ = recoveryReceive.Submit(convertToRecoveryDiagnosis(diagnosis))
 	})
 
 	// 创建告警接收器

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	fdconfigrpc "fault-diagnosis/pkg/configrpc"
+	frconfigrpc "fault-tolerance/fault-recovery/pkg/configrpc"
 	vsoaProtocol "github.com/acoinfo/vsoa/protocol"
 	vsoaServer "github.com/acoinfo/vsoa/server"
 	hmconfigrpc "health-monitor/pkg/configrpc"
@@ -20,6 +21,10 @@ type diagnosisConfigService interface {
 	HandleUpdateConfigPayload(payload []byte) fdconfigrpc.UpdateConfigResponse
 }
 
+type recoveryConfigService interface {
+	HandleUpdateConfigPayload(payload []byte) frconfigrpc.UpdateConfigResponse
+}
+
 type extraRoute struct {
 	path    string
 	method  vsoaProtocol.RpcMessageType
@@ -31,6 +36,7 @@ type ConfigHubServer struct {
 	addr string
 	hm   healthConfigService
 	fd   diagnosisConfigService
+	fr   recoveryConfigService
 
 	mu     sync.Mutex
 	server *vsoaServer.Server
@@ -39,20 +45,24 @@ type ConfigHubServer struct {
 }
 
 func NewConfigHubServer(addr string) *ConfigHubServer {
-	return NewConfigHubServerWithServices(addr, hmconfigrpc.NewRuntimeConfigService(), fdconfigrpc.NewRuntimeConfigService())
+	return NewConfigHubServerWithServices(addr, hmconfigrpc.NewRuntimeConfigService(), fdconfigrpc.NewRuntimeConfigService(), frconfigrpc.NewRuntimeConfigService())
 }
 
-func NewConfigHubServerWithServices(addr string, hm healthConfigService, fd diagnosisConfigService) *ConfigHubServer {
+func NewConfigHubServerWithServices(addr string, hm healthConfigService, fd diagnosisConfigService, fr recoveryConfigService) *ConfigHubServer {
 	if hm == nil {
 		hm = hmconfigrpc.NewRuntimeConfigService()
 	}
 	if fd == nil {
 		fd = fdconfigrpc.NewRuntimeConfigService()
 	}
+	if fr == nil {
+		fr = frconfigrpc.NewRuntimeConfigService()
+	}
 	return &ConfigHubServer{
 		addr:  addr,
 		hm:    hm,
 		fd:    fd,
+		fr:    fr,
 		errCh: make(chan error, 1),
 	}
 }
@@ -84,6 +94,9 @@ func (s *ConfigHubServer) Start() error {
 	}
 	if err := srv.On(fdconfigrpc.UpdateConfigRPCPath, vsoaProtocol.RpcMethodSet, s.handleDiagnosisUpdateRPC); err != nil {
 		return fmt.Errorf("register fault diagnosis update rpc failed: %w", err)
+	}
+	if err := srv.On(frconfigrpc.UpdateConfigRPCPath, vsoaProtocol.RpcMethodSet, s.handleRecoveryUpdateRPC); err != nil {
+		return fmt.Errorf("register fault recovery update rpc failed: %w", err)
 	}
 	for _, route := range s.routes {
 		if err := srv.On(route.path, route.method, route.handler); err != nil {
@@ -135,6 +148,13 @@ func (s *ConfigHubServer) handleHealthStatusRPC(req, res *vsoaProtocol.Message) 
 func (s *ConfigHubServer) handleDiagnosisUpdateRPC(req, res *vsoaProtocol.Message) {
 	payload := decodeRequestPayload(req)
 	resp := s.fd.HandleUpdateConfigPayload(payload)
+	res.Param = encodeResponsePayload(resp)
+	res.Data = nil
+}
+
+func (s *ConfigHubServer) handleRecoveryUpdateRPC(req, res *vsoaProtocol.Message) {
+	payload := decodeRequestPayload(req)
+	resp := s.fr.HandleUpdateConfigPayload(payload)
 	res.Param = encodeResponsePayload(resp)
 	res.Data = nil
 }

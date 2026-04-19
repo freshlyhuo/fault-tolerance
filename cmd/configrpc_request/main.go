@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	fdconfigrpc "fault-diagnosis/pkg/configrpc"
+	frconfigrpc "fault-tolerance/fault-recovery/pkg/configrpc"
 	hmconfigrpc "health-monitor/pkg/configrpc"
 
 	"github.com/acoinfo/vsoa/client"
@@ -24,7 +25,7 @@ type updateRequest struct {
 
 func main() {
 	addr := flag.String("addr", "127.0.0.1:6551", "VSOA server address")
-	target := flag.String("target", "health", "target module: health|diagnosis")
+	target := flag.String("target", "health", "target module: health|diagnosis|recovery")
 	path := flag.String("path", "", "RPC path override; default by target")
 	method := flag.String("method", "set", "RPC method: set|get")
 
@@ -98,6 +99,8 @@ func buildRequest(
 			rpcPath = hmconfigrpc.UpdateConfigRPCPath
 		case "diagnosis", "fault-diagnosis", "fd":
 			rpcPath = fdconfigrpc.UpdateConfigRPCPath
+		case "recovery", "fault-recovery", "fr":
+			rpcPath = frconfigrpc.UpdateConfigRPCPath
 		default:
 			return "", 0, nil, fmt.Errorf("unknown target %q", target)
 		}
@@ -123,6 +126,8 @@ func buildRequest(
 		defaultModuleName = hmconfigrpc.DefaultModuleName
 	case "diagnosis", "fault-diagnosis", "fd":
 		defaultModuleName = fdconfigrpc.DefaultModuleName
+	case "recovery", "fault-recovery", "fr":
+		defaultModuleName = frconfigrpc.DefaultModuleName
 	}
 
 	if strings.TrimSpace(moduleName) == "" {

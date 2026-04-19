@@ -31,12 +31,17 @@ func NormalizeDiagnosisEvent(in DiagnosisResult) (NormalizedEvent, error) {
 		traceID = fmt.Sprintf("trace-%d", ts.UnixNano())
 	}
 
+	metadata := make(map[string]interface{}, len(in.Metadata))
+	for k, v := range in.Metadata {
+		metadata[k] = v
+	}
+
 	return NormalizedEvent{
 		TraceID:       traceID,
 		FaultCode:     in.FaultCode,
 		TargetID:      targetID,
 		Status:        status,
 		DiagnosisTime: ts.Unix(),
-		Metadata:      in.Metadata,
+		Metadata:      metadata,
 	}, nil
 }

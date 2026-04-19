@@ -26,6 +26,7 @@ func main() {
 	fmt.Println("- /fault_tolerance/health_monitor/update_config_rpc")
 	fmt.Println("- /fault_tolerance/health_monitor/get_status_rpc")
 	fmt.Println("- /fault_tolerance/fault_diagnosis/update_config_rpc")
+	fmt.Println("- /fault_tolerance/fault_recovery/update_config_rpc")
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

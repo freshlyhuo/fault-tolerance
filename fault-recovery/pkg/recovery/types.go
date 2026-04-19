@@ -42,9 +42,6 @@ func DiagnosisTargetID(result DiagnosisResult) string {
 		return result.Source
 	}
 	if result.Metadata != nil {
-		if v, ok := result.Metadata["target_id"].(string); ok {
-			return v
-		}
 		if v, ok := result.Metadata["source"].(string); ok {
 			return v
 		}

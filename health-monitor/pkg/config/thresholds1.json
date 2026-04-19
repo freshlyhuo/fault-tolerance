@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "active_version": "V1.0",
+    "active_version": "V1.2",
     "active_checksum": "2B69E0C8",
     "updated_at": "2026-04-07T14:30:00Z"
   },
@@ -192,6 +192,22 @@
   "service": {
     "require_healthy": true,
     "instance_online_min": 1,
-    "name":["health-monitor", "data-collector", "alert-manager"]
+    "config":{
+      "serviceA": {
+        "cpu_threshold": {
+          "max": 20,
+          "min": 20
+        },
+        "memory_threshold": {
+          "max": 20,
+          "min": 20
+        },
+        "factor":{
+          "max" : 5 ,
+          "min" : 5
+        },
+        "window_duration":10
+      }
+    }
   }
 }

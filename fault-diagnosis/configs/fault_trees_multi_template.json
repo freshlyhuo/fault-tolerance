@@ -17,6 +17,7 @@
       "intermediate_events": [
         {
           "event_id": "T1-MID-001",
+          "recovery_plan_id": "RP-001",
           "name": "CC/CV module malfunction",
           "description": "cjb充放电单元CC/CV模块故障",
           "gate_type": "AND",
@@ -24,6 +25,7 @@
         },
         {
           "event_id": "T1-MID-002",
+          "recovery_plan_id": "RP-001",
           "name": "Satellite DC module malfunction",
           "description": "星务DC模块故障",
           "gate_type": "AND",
@@ -61,6 +63,7 @@
       "intermediate_events": [
         {
           "event_id": "T2-MID-001",
+          "recovery_plan_id": "RP-002",
           "name": "cjbCAN communication error",
           "description": "cjbCAN通信异常",
           "gate_type": "AND",
@@ -111,6 +114,7 @@
         },
         {
           "event_id": "T3-MID-002",
+          "recovery_plan_id": "RP-003",
           "name": "Battery abnormal",
           "description": "蓄电池异常",
           "gate_type": "AND",
@@ -118,6 +122,7 @@
         },
         {
           "event_id": "T3-MID-003",
+          "recovery_plan_id": "RP-004",
           "name": "AD module exception",
           "description": "AD模块异常",
           "gate_type": "AND",
@@ -168,13 +173,15 @@
         },
         {
           "event_id": "T4-MID-002",
-          "name": "Thermistor abnormal",
-          "description": "热敏电阻异常",
+          "recovery_plan_id": "RP-005",
+          "name": "Thermal sensor acquisition circuit abnormal",
+          "description": "热敏采集电路异常",
           "gate_type": "AND",
           "children": ["T4-MID-001","T4-EVT-014"]
         },
         {
           "event_id": "T4-MID-003",
+          "recovery_plan_id": "RP-004",
           "name": "AD module exception",
           "description": "AD模块异常",
           "gate_type": "AND",
@@ -284,6 +291,7 @@
       "intermediate_events": [
         {
           "event_id": "T5-MID-001",
+          "recovery_plan_id": "RP-006",
           "name": "CAN command receive abnormal",
           "description": "CAN指令接收异常",
           "gate_type": "AND",
@@ -291,17 +299,19 @@
         },
         {
           "event_id": "T5-MID-002",
+          "recovery_plan_id": "RP-007",
           "name": "AD module collect abnormal",
           "description": "AD模块采集异常",
           "gate_type": "AND",
           "children": ["T5-EVT-002", "T5-EVT-003"]
         },
         {
-          "event_id": "T5-MID-003",
+          "event_id": "T5-MID-008",
+          "recovery_plan_id": "RP-008",
           "name": "Platform heater switch state abnormal",
           "description": "OC指令异常",
           "gate_type": "AND",
-          "children": ["NOT-T5-MID-002","NOT-T5-MID-002","T5-EVT-003"]
+          "children": ["NOT-T5-MID-001","NOT-T5-MID-002","T5-EVT-003"]
         }
       ],
       "basic_events": [
@@ -341,6 +351,7 @@
       "intermediate_events": [
         {
           "event_id": "T6-MID-001",
+          "recovery_plan_id": "RP-009",
           "name": "CAN command receive abnormal",
           "description": "CAN指令接收异常",
           "gate_type": "AND",
@@ -348,6 +359,7 @@
         },
         {
           "event_id": "T6-MID-002",
+          "recovery_plan_id": "RP-010",
           "name": "AD module collect abnormal",
           "description": "AD模块采集异常",
           "gate_type": "AND",
@@ -355,6 +367,7 @@
         },
         {
           "event_id": "T6-MID-003",
+          "recovery_plan_id": "RP-011",
           "name": "Platform heater switch state abnormal",
           "description": "OC指令异常",
           "gate_type": "AND",
@@ -398,6 +411,7 @@
       "intermediate_events": [
         {
           "event_id": "T7-MID-001",
+           "recovery_plan_id": "RP-006",
           "name": "CAN command receive abnormal",
           "description": "CAN指令接收异常",
           "gate_type": "AND",
@@ -405,6 +419,7 @@
         },
         {
           "event_id": "T7-MID-002",
+          "recovery_plan_id": "RP-004",
           "name": "AD module collect abnormal",
           "description": "AD模块采集异常",
           "gate_type": "AND",
@@ -412,8 +427,9 @@
         },
         {
           "event_id": "T7-MID-003",
-          "name": "Thermistor abnormal",
-          "description": "热敏电阻异常",
+          "recovery_plan_id": "RP-005",
+          "name": "Thermal sensor acquisition circuit abnormal",
+          "description": "热敏采集电路异常",
           "gate_type": "AND",
           "children": ["T7-EVT-003","T7-EVT-004"]
         }
@@ -461,6 +477,7 @@
       "intermediate_events": [
         {
           "event_id": "T8-MID-001",
+          "recovery_plan_id": "RP-009",
           "name": "CAN command receive abnormal",
           "description": "CAN指令接收异常",
           "gate_type": "AND",
@@ -468,6 +485,7 @@
         },
         {
           "event_id": "T8-MID-002",
+          "recovery_plan_id": "RP-004",
           "name": "AD module collect abnormal",
           "description": "AD模块采集异常",
           "gate_type": "AND",
@@ -475,8 +493,9 @@
         },
         {
           "event_id": "T8-MID-003",
-          "name": "Thermistor abnormal",
-          "description": "热敏电阻异常",
+          "recovery_plan_id": "RP-005",
+          "name": "Thermal sensor acquisition circuit abnormal",
+          "description": "热敏采集电路异常",
           "gate_type": "AND",
           "children": ["T8-EVT-003","T8-EVT-004"]
         }
@@ -524,6 +543,7 @@
       "intermediate_events": [
         {
           "event_id": "T9-MID-001",
+          "recovery_plan_id": "RP-012",
           "name": "CAN command receive abnormal",
           "description": "CAN指令接收异常",
           "gate_type": "AND",
@@ -531,6 +551,7 @@
         },
         {
           "event_id": "T9-MID-002",
+          "recovery_plan_id": "RP-013",
           "name": "AD module collect abnormal",
           "description": "AD模块采集异常",
           "gate_type": "AND",
@@ -538,6 +559,7 @@
         },
         {
           "event_id": "T9-MID-003",
+          "recovery_plan_id": "RP-014",
           "name": "Platform heater switch state abnormal",
           "description": "OC指令异常",
           "gate_type": "AND",
@@ -581,6 +603,7 @@
       "intermediate_events": [
         {
           "event_id": "T10-MID-001",
+          "recovery_plan_id": "RP-012",
           "name": "CAN command receive abnormal",
           "description": "CAN指令接收异常",
           "gate_type": "AND",
@@ -588,6 +611,7 @@
         },
         {
           "event_id": "T10-MID-002",
+          "recovery_plan_id": "RP-004",
           "name": "AD module collect abnormal",
           "description": "AD模块采集异常",
           "gate_type": "AND",
@@ -595,8 +619,9 @@
         },
         {
           "event_id": "T10-MID-003",
-          "name": "Thermistor abnormal",
-          "description": "热敏电阻异常",
+          "recovery_plan_id": "RP-005",
+          "name": "Thermal sensor acquisition circuit abnormal",
+          "description": "热敏采集电路异常",
           "gate_type": "AND",
           "children": ["T10-EVT-003","T10-EVT-004"]
         }
@@ -644,6 +669,7 @@
       "intermediate_events": [
         {
           "event_id": "T11-MID-001",
+          "recovery_plan_id": "RP-015",
           "name": "Communication device failed to start",
           "description": "通信机开机失败",
           "gate_type": "AND",
@@ -681,6 +707,7 @@
       "intermediate_events": [
         {
           "event_id": "T12-MID-001",
+          "recovery_plan_id": "RP-015",
           "name": "Telemetry acquisition of communication device faults",
           "description": "通信机遥测获取故障",
           "gate_type": "AND",
@@ -736,6 +763,7 @@
       "intermediate_events": [
         {
           "event_id": "T13-MID-001",
+          "recovery_plan_id": "RP-016",
           "name": "CAN command receive abnormal",
           "description": "CAN指令接收异常",
           "gate_type": "AND",
@@ -743,6 +771,7 @@
         },
         {
           "event_id": "T13-MID-002",
+          "recovery_plan_id": "RP-017",
           "name": "RS422 abnormal",
           "description": "RS422异常",
           "gate_type": "AND",
@@ -750,6 +779,7 @@
         },
         {
           "event_id": "T13-MID-003",
+          "recovery_plan_id": "RP-017",
           "name": "Communication device program abnormal",
           "description": "通信机程序异常",
           "gate_type": "AND",
@@ -793,6 +823,7 @@
       "intermediate_events": [
         {
           "event_id": "T14-MID-001",
+          "recovery_plan_id": "RP-018",
           "name": "RF link abnormal",
           "description": "射频链路异常",
           "gate_type": "AND",
@@ -836,6 +867,7 @@
       "intermediate_events": [
         {
           "event_id": "T15-MID-001",
+          "recovery_plan_id": "RP-019",
           "name": "CAN command receive abnormal",
           "description": "CAN指令接收异常",
           "gate_type": "AND",
@@ -843,6 +875,7 @@
         },
         {
           "event_id": "T15-MID-002",
+          "recovery_plan_id": "RP-020",
           "name": "RS422 abnormal",
           "description": "RS422异常",
           "gate_type": "AND",
@@ -850,6 +883,7 @@
         },
         {
           "event_id": "T15-MID-003",
+          "recovery_plan_id": "RP-020",
           "name": "Communication device program abnormal",
           "description": "通信机程序异常",
           "gate_type": "AND",
@@ -893,6 +927,7 @@
       "intermediate_events": [
         {
           "event_id": "T16-MID-001",
+          "recovery_plan_id": "RP-021",
           "name": "CAN command receive abnormal",
           "description": "CAN指令接收异常",
           "gate_type": "AND",
@@ -900,6 +935,7 @@
         },
         {
           "event_id": "T16-MID-002",
+          "recovery_plan_id": "RP-022",
           "name": "RS422 abnormal",
           "description": "RS422异常",
           "gate_type": "AND",
@@ -907,6 +943,7 @@
         },
         {
           "event_id": "T16-MID-003",
+          "recovery_plan_id": "RP-022",
           "name": "Communication device program abnormal",
           "description": "通信机程序异常",
           "gate_type": "AND",
@@ -950,6 +987,7 @@
       "intermediate_events": [
         {
           "event_id": "T17-MID-001",
+          "recovery_plan_id": "RP-023",
           "name": "Communication device failed to start",
           "description": "GNSSA上电异常",
           "gate_type": "AND",
@@ -987,6 +1025,7 @@
       "intermediate_events": [
         {
           "event_id": "T18-MID-001",
+          "recovery_plan_id": "RP-023",
           "name": "Telemetry acquisition of communication device faults",
           "description": "GNSSA遥测异常",
           "gate_type": "AND",
@@ -1042,6 +1081,7 @@
       "intermediate_events": [
         {
           "event_id": "T19-MID-001",
+          "recovery_plan_id": "RP-024",
           "name": "Gyroscope failed to start",
           "description": "陀螺仪开机异常",
           "gate_type": "AND",
@@ -1079,6 +1119,7 @@
       "intermediate_events": [
         {
           "event_id": "T20-MID-001",
+          "recovery_plan_id": "RP-024",
           "name": "Gyroscope telemetry anomaly",
           "description": "陀螺仪遥测异常",
           "gate_type": "AND",
@@ -1134,6 +1175,7 @@
       "intermediate_events": [
         {
           "event_id": "T21-MID-001",
+          "recovery_plan_id": "RP-025",
           "name": "MEMS failed to start",
           "description": "MEMS开机异常",
           "gate_type": "AND",
@@ -1165,6 +1207,7 @@
       "intermediate_events": [
         {
           "event_id": "T22-MID-001",
+          "recovery_plan_id": "RP-025",
           "name": "MEMS telemetry anomaly",
           "description": "MEMS遥测异常",
           "gate_type": "AND",
@@ -1220,6 +1263,7 @@
       "intermediate_events": [
         {
           "event_id": "T23-MID-001",
+          "recovery_plan_id": "RP-026",
           "name": "Star Sensor failed to start",
           "description": "星敏开机异常",
           "gate_type": "AND",
@@ -1251,6 +1295,7 @@
       "intermediate_events": [
         {
           "event_id": "T24-MID-001",
+          "recovery_plan_id": "RP-026",
           "name": "StarTrackerl telemetry anomaly",
           "description": "星敏遥测异常",
           "gate_type": "AND",
@@ -1330,6 +1375,7 @@
       "intermediate_events": [
         {
           "event_id": "T25-MID-001",
+          "recovery_plan_id": "RP-027",
           "name": "MomentumWheel failed to start",
           "description": "动量轮开机失败",
           "gate_type": "AND",
@@ -1367,6 +1413,7 @@
       "intermediate_events": [
         {
           "event_id": "T26-MID-001",
+          "recovery_plan_id": "RP-028",
           "name": "CAN command receive abnormal",
           "description": "CAN指令接收异常",
           "gate_type": "AND",
@@ -1381,6 +1428,7 @@
         },
         {
           "event_id": "T26-MID-003",
+          "recovery_plan_id": "RP-029",
           "name": "MomentumWheel speed setting anomaly",
           "description": "RS422/动量轮程序异常",
           "gate_type": "AND",
@@ -1415,6 +1463,62 @@
       ]
     },
     {
+      "fault_tree_id": "TREE-027",
+      "description": "动量轮遥测异常",
+      "top_events": [
+        {
+          "event_id": "T27-TOP-001",
+          "name": "CJB-O2-CS-17",
+          "description": "动量轮遥测异常",
+          "fault_code": "YW-O2-CS-17",
+          "gate_type": "BASIC",
+          "children": ["T27-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T27-MID-001",
+          "recovery_plan_id": "RP-030",
+          "name": "Momentum wheel telemetry anomaly",
+          "description": "动量轮遥测异常",
+          "gate_type": "AND",
+          "children": ["T27-EVT-001","T27-EVT-002","T27-EVT-003","T27-EVT-004","T27-EVT-005"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T27-EVT-001",
+          "name": "MEMS_No_telemetry_count increase",
+          "description": "MEMS串口无遥测",
+          "alert_id": "YW-AttitudeOrbitControl-MEMS_No_telemetry_count"
+        },
+        {
+          "event_id": "T27-EVT-002",
+          "name": "TMEZD01013_CheckErrorCount abnormal",
+          "description": "TMEZD01013cjb-星务-串口1动量轮校验错计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01013_CheckErrorCount"
+        },
+        {
+          "event_id": "T27-EVT-003",
+          "name": "TMEZD01014_FrameHeaderErrorCount abnormal",
+          "description": "TMEZD01014cjb-星务-串口1动量轮帧头错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01014_FrameHeaderErrorCount"
+        },
+        {
+          "event_id": "T27-EVT-004",
+          "name": "TMEZD01015_FrameLengthErrorCount abnormal",
+          "description": "TMEZD01015cjb-星务-串口1动量轮帧长错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01015_FrameLengthErrorCount"
+        },
+        {
+          "event_id": "T27-EVT-005",
+          "name": "TMEZD01016_ResetCount abnormal",
+          "description": "TMEZD01016cjb-星务-串口1动量轮复位计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01016_ResetCount"
+        }
+      ]
+    },
+    {
       "fault_tree_id": "TREE-028",
       "description": "容器资源耗尽",
       "top_events": [
@@ -1433,7 +1537,8 @@
           "name": "Container resources exhausted",
           "description": "容器资源耗尽",
           "gate_type": "OR",
-          "children": ["T28-EVT-001","T28-EVT-002","T28-EVT-003"]
+          "children": ["T28-EVT-001","T28-EVT-002","T28-EVT-003"],
+          "container_id": null
         }
       ],
       "basic_events": [
@@ -1471,7 +1576,8 @@
           "description": "节点资源耗尽",
           "fault_code": "MS-ND-1",
           "gate_type": "BASIC",
-          "children": ["T29-MID-001"]
+          "children": ["T29-MID-001"],
+          "node_id": null
         }
       ],
       "intermediate_events": [
@@ -1526,7 +1632,8 @@
           "name": "Service unhealthy",
           "description": "服务不健康",
           "gate_type": "BASIC",
-          "children": ["T30-EVT-001"]
+          "children": ["T30-EVT-001"],
+          "service_id": null
         }
       ],
       "basic_events": [
