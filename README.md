@@ -15,6 +15,11 @@ mkdir -p build
 GOOS=sylixos GOARCH=arm64 go build -ldflags="-s -w" -o build/health-monitor-sylixos ./cmd/integration_test
 GOOS=sylixos GOARCH=arm64 go build -ldflags="-s -w" -o build/health-monitor-sylixos ./cmd/integration_test_microservice
 GOOS=sylixos GOARCH=arm64 go build -ldflags="-s -w" -o build/health-monitor-sylixos ./cmd/integration_test_business
+
+# 3. 编译故障修复配置接口测试程序（从仓库根目录执行）
+cd /home/yzj/fault-tolerance
+mkdir -p build
+GOOS=sylixos GOARCH=arm64 go build -ldflags="-s -w" -o build/fault-recovery-configrpc-sylixos ./fault-recovery/cmd/configrpc_recovery
 ```
 
 ### 3. 在 SylixOS 上运行
