@@ -1,5 +1,9 @@
 {
-  "version": "V2.1",
+  "_meta": {
+    "active_version": "V1.2",
+    "active_checksum": "2B69E0C8",
+    "updated_at": "2026-04-07T14:30:00Z"
+  },
   "fault_trees": [
     {
       "fault_tree_id": "TREE-001",
@@ -827,7 +831,14 @@
           "name": "RF link abnormal",
           "description": "射频链路异常",
           "gate_type": "AND",
-          "children": ["T14-EVT-001","T14-EVT-002","T14-EVT-003"]
+          "children": ["T14-EVT-001","T14-EVT-002","T14-EVT-003","T14-MID-002"]
+        },
+        {
+          "event_id": "T14-MID-002",
+          "name": "Abnormal signal-to-noise ratio or RSSI",
+          "description": "信噪比或RSSI异常",
+          "gate_type": "OR",
+          "children": ["T14-EVT-004","T14-EVT-005"]
         }
       ],
       "basic_events": [
@@ -848,6 +859,18 @@
           "name": "Com_CommandSeriaPortCount abnormal",
           "description": "通信机指令下发串口计数异常",
           "alert_id": "YW-comm-Com_CommandSeriaPortCount"
+        },
+        {
+          "event_id": "T14-EVT-004",
+          "name": "Abnormal signal-to-noise ratio",
+          "description": "信噪比异常",
+          "alert_id": "YW-comm-TMEZD01145_SNR"
+        },
+        {
+          "event_id": "T14-EVT-005",
+          "name": "Abnormal RSSI",
+          "description": "RSSI异常",
+          "alert_id": "YW-comm-TMEZD01147_ReceiveRSSI"
         }
       ]
     },
