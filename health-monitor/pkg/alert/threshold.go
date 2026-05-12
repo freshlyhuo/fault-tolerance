@@ -7,6 +7,7 @@ package alert
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -48,7 +49,7 @@ func isConfiguredInt(v *int) bool {
 	return v != nil
 }
 
-func shouldSendByState(sm *state.StateManager, alertID, source string, isFiring, bySource bool) (bool, bool) {
+func shouldSendByState(sm *state.StateManager, alertID string, isFiring bool) (bool, bool) {
 	if sm == nil {
 		if isFiring {
 			return true, true
@@ -56,9 +57,6 @@ func shouldSendByState(sm *state.StateManager, alertID, source string, isFiring,
 		return false, false
 	}
 
-	if bySource {
-		return sm.CheckAndUpdateAlertStateWithSource(alertID, source, isFiring)
-	}
 	return sm.CheckAndUpdateAlertState(alertID, isFiring)
 }
 
@@ -66,13 +64,13 @@ func appendAlert(
 	alerts []*model.AlertEvent,
 	sm *state.StateManager,
 	alertID, source string,
-	isFiring, bySource bool,
-	alertType, faultCode, firingMsg, resolvedMsg string,
+	isFiring bool,
+	firingMsg, resolvedMsg string,
 	metricValue float64,
 	metadata map[string]interface{},
 	timestamp int64,
 ) []*model.AlertEvent {
-	shouldSend, firing := shouldSendByState(sm, alertID, source, isFiring, bySource)
+	shouldSend, firing := shouldSendByState(sm, alertID, isFiring)
 	if !shouldSend {
 		return alerts
 	}
@@ -86,40 +84,83 @@ func appendAlert(
 
 	return append(alerts, &model.AlertEvent{
 		AlertID:     alertID,
-		Type:        alertType,
 		Status:      status,
 		Source:      source,
 		Message:     message,
 		Timestamp:   timestamp,
-		FaultCode:   faultCode,
+		FaultCode:   faultCodeForAlertID(alertID),
 		MetricValue: metricValue,
 		Metadata:    metadata,
 	})
 }
 
-func nodeCPUUsage(metrics *model.NodeMetrics) (float64, bool) {
-	switch v := metrics.CPUUsage.(type) {
-	case float64:
-		return v, true
-	case model.CPUUsage:
-		return v.Total, true
-	default:
-		return 0, false
-	}
-}
-
-func containerMetadata(metrics *model.ContainerMetrics) map[string]interface{} {
-	if metrics.ServiceName == "" && metrics.ServiceID == "" {
+func previousBusinessData(sm *state.StateManager, id string, current interface{}) interface{} {
+	if sm == nil {
 		return nil
 	}
-	md := map[string]interface{}{}
-	if metrics.ServiceName != "" {
-		md["serviceName"] = metrics.ServiceName
+
+	history := sm.QueryHistory(state.MetricTypeBusiness, id, HistoryLookupWindow)
+	for i := len(history) - 1; i >= 0; i-- {
+		bm, ok := history[i].Data.(*model.BusinessMetrics)
+		if !ok || bm == nil {
+			continue
+		}
+		if bm.Data == current {
+			continue
+		}
+		return bm.Data
 	}
-	if metrics.ServiceID != "" {
-		md["serviceId"] = metrics.ServiceID
+	return nil
+}
+
+const HistoryLookupWindow = 10 * time.Minute
+
+func faultCodeForAlertID(alertID string) string {
+	switch alertID {
+	case "YW-power-TMEZD01095cjb_BatteryVoltage",
+		"YW-power-TMEZD01096cjb_BusVoltage",
+		"YW-power-TMEZD01011cjb_CPUVoltage":
+		return "YW-RG-ZD-3"
+	case "YW-power-TMEZD01100cjb_ThermalRefVoltage":
+		return "YW-RG-ZD-4"
+	case "YW-power-TMEZD01247_LoadCurrent":
+		return "YW-O2-CS-1"
+	case "YW-thermal-TMEZD01121_PlatformHeater":
+		return "YW-RG-ZD-5"
+	case "YW-thermal-TMEZD01254_BatteryHeater":
+		return "YW-RG-ZD-6"
+	case "YW-thermal-TMEZD01115_TankHeater":
+		return "YW-RG-ZD-7"
+	case "YW-comm-TMEZD01004cjb_InstructionCount":
+		return "YW-RG-ZD-2"
+	case "YW-comm-noresponse":
+		return "YW-RG-ZD-2"
+	case "YW-comm-Com_No_telemetry_count":
+		return "YW-O2-CS-1"
+	case "YW-comm-TMEZD01046_CheckErrorCount",
+		"YW-comm-TMEZD01047_FrameHeaderErrorCount",
+		"YW-comm-TMEZD01048_FrameLengthErrorCount",
+		"YW-comm-TMEZD01052_ResetCount":
+		return "YW-O2-CS-2"
+	case "YW-comm-TMEZD01155_SwitchState",
+		"YW-comm-TMEZD01150_ReceiveCTACount":
+		return "YW-O2-CS-3"
+	case "YW-comm-TMEZD01167_TelemetryEncryptStatus":
+		return "YW-O2-CS-5"
+	case "YW-comm-TMEZD01168_TelemetryEncryptStatus":
+		return "YW-O2-CS-6"
 	}
-	return md
+
+	const prefix = "YW-AttitudeOrbitControl-"
+	if strings.HasPrefix(alertID, prefix) {
+		key := strings.TrimPrefix(alertID, prefix)
+		if key == "TMEZD01044_ResetCount" {
+			key = "TMEZD01054_ResetCount"
+		}
+		return attitudeOrbitControlFaultCode(key)
+	}
+
+	return ""
 }
 
 // CheckPowerThresholds 检查供电服务阈值（无状态入口）
@@ -136,48 +177,43 @@ func CheckPowerThresholdsWithState(metrics *model.PowerMetrics, sm *state.StateM
 	tc := config.GetThresholdConfig()
 	now := time.Now().Unix()
 	var alerts []*model.AlertEvent
-	p12Min, p12Max := rangeOrDefault(tc.Power.TMAN0104612VVoltage, 12.5, 13.5)
-	bracketMin, bracketMax := rangeOrDefault(tc.Power.TMAN01050Current, 0.0, 3.0)
 	batMin, batMax := rangeOrDefault(tc.Power.TMEZD01095CjBBatteryVolt, 21.0, 29.4)
+	busMin, busMax := rangeOrDefault(tc.Power.TMEZD01096CjBBusVolt, 21.0, 29.4)
 	cpuMin, cpuMax := rangeOrDefault(tc.Power.TMEZD01011CjBCPUVolt, 3.1, 3.5)
+	thermalRefMin, thermalRefMax := rangeOrDefault(tc.Power.TMEZD01100CjBThermalRef, 4.5, 5.5)
 	loadMin, loadMax := rangeOrDefault(tc.Power.TMEZD01247LoadCurrent, 0.5, 5.0)
 
-	isFiring := metrics.PowerModule12V < p12Min || metrics.PowerModule12V > p12Max
+	isFiring := metrics.BatteryVoltage < batMin || metrics.BatteryVoltage > batMax
 	alerts = appendAlert(alerts, sm,
-		"POWER_12V_ALERT", "PowerModule12V", isFiring, false,
-		"voltage_abnormal", "CJB-RG-ZD-1",
-		fmt.Sprintf("12V功率模块电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.PowerModule12V, p12Min, p12Max),
-		fmt.Sprintf("12V功率模块电压已恢复正常: %.2fV", metrics.PowerModule12V),
-		metrics.PowerModule12V, nil, now)
-
-	isFiring = metrics.BatteryVoltage < batMin || metrics.BatteryVoltage > batMax
-	alerts = appendAlert(alerts, sm,
-		"BATTERY_VOLTAGE_ALERT", "BatteryVoltage", isFiring, false,
-		"voltage_abnormal", "CJB-RG-ZD-3",
+		"YW-power-TMEZD01095cjb_BatteryVoltage", "BatteryVoltage", isFiring,
 		fmt.Sprintf("蓄电池电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.BatteryVoltage, batMin, batMax),
 		fmt.Sprintf("蓄电池电压已恢复正常: %.2fV", metrics.BatteryVoltage),
 		metrics.BatteryVoltage, nil, now)
 
-	isFiring = metrics.Bracket12VCurrent < bracketMin || metrics.Bracket12VCurrent > bracketMax
+	isFiring = metrics.BusVoltage < busMin || metrics.BusVoltage > busMax
 	alerts = appendAlert(alerts, sm,
-		"BRACKET_12V_CURRENT_ALERT", "Bracket12VCurrent", isFiring, false,
-		"current_abnormal", "CJB-O2-CS-1",
-		fmt.Sprintf("12V连接机构电流异常: %.2fA (正常[%.2f,%.2f]A)", metrics.Bracket12VCurrent, bracketMin, bracketMax),
-		fmt.Sprintf("12V连接机构电流已恢复正常: %.2fA", metrics.Bracket12VCurrent),
-		metrics.Bracket12VCurrent, nil, now)
+		"YW-power-TMEZD01096cjb_BusVoltage", "BusVoltage", isFiring,
+		fmt.Sprintf("母线电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.BusVoltage, busMin, busMax),
+		fmt.Sprintf("母线电压已恢复正常: %.2fV", metrics.BusVoltage),
+		metrics.BusVoltage, nil, now)
 
 	isFiring = metrics.CPUVoltage < cpuMin || metrics.CPUVoltage > cpuMax
 	alerts = appendAlert(alerts, sm,
-		"CPU_VOLTAGE_ALERT", "CPUVoltage", isFiring, false,
-		"voltage_abnormal", "CJB-RG-ZD-3",
+		"YW-power-TMEZD01011cjb_CPUVoltage", "CPUVoltage", isFiring,
 		fmt.Sprintf("CPU板电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.CPUVoltage, cpuMin, cpuMax),
 		fmt.Sprintf("CPU板电压已恢复正常: %.2fV", metrics.CPUVoltage),
 		metrics.CPUVoltage, nil, now)
 
+	isFiring = metrics.ThermalRefVoltage < thermalRefMin || metrics.ThermalRefVoltage > thermalRefMax
+	alerts = appendAlert(alerts, sm,
+		"YW-power-TMEZD01100cjb_ThermalRefVoltage", "ThermalRefVoltage", isFiring,
+		fmt.Sprintf("热敏基准电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.ThermalRefVoltage, thermalRefMin, thermalRefMax),
+		fmt.Sprintf("热敏基准电压已恢复正常: %.2fV", metrics.ThermalRefVoltage),
+		metrics.ThermalRefVoltage, nil, now)
+
 	isFiring = metrics.LoadCurrent < loadMin || metrics.LoadCurrent > loadMax
 	alerts = appendAlert(alerts, sm,
-		"LOAD_CURRENT_ALERT", "LoadCurrent", isFiring, false,
-		"current_abnormal", "CJB-O2-CS-1",
+		"YW-power-TMEZD01247_LoadCurrent", "LoadCurrent", isFiring,
 		fmt.Sprintf("负载电流异常: %.2fA (正常[%.2f,%.2f]A)", metrics.LoadCurrent, loadMin, loadMax),
 		fmt.Sprintf("负载电流已恢复正常: %.2fA", metrics.LoadCurrent),
 		metrics.LoadCurrent, nil, now)
@@ -187,6 +223,11 @@ func CheckPowerThresholdsWithState(metrics *model.PowerMetrics, sm *state.StateM
 
 // CheckThermalThresholds 检查热控服务阈值（当前仅触发告警）
 func CheckThermalThresholds(metrics *model.ThermalMetrics) []*model.AlertEvent {
+	return CheckThermalThresholdsWithState(metrics, nil)
+}
+
+// CheckThermalThresholdsWithState 检查热控服务阈值（支持开关状态恢复告警）
+func CheckThermalThresholdsWithState(metrics *model.ThermalMetrics, sm *state.StateManager) []*model.AlertEvent {
 	if metrics == nil {
 		return nil
 	}
@@ -197,17 +238,18 @@ func CheckThermalThresholds(metrics *model.ThermalMetrics) []*model.AlertEvent {
 		thermMin, thermMax = rangeOrDefault(config.MetricThreshold{Min: tc.Thermal.ThermalTemps[0].Min, Max: tc.Thermal.ThermalTemps[0].Max}, -20.0, 50.0)
 	}
 	bat1Min, bat1Max := rangeOrDefault(tc.Thermal.BatteryTemp1, 0.0, 45.0)
+	bat2Min, bat2Max := rangeOrDefault(tc.Thermal.BatteryTemp2, 0.0, 45.0)
 
 	for i, temp := range metrics.ThermalTemps {
 		if temp < thermMin || temp > thermMax {
 			alerts = append(alerts, &model.AlertEvent{
-				AlertID:     fmt.Sprintf("THERM-TEMP%d-%d", i+1, time.Now().Unix()),
+				AlertID:     fmt.Sprintf("YW-thermal-TMEZD%05dcjb_ThermalTemp", 1066+i),
 				Type:        "TemperatureAbnormal",
 				Status:      model.AlertStatusFiring,
 				Source:      fmt.Sprintf("ThermalTemp%d", i+1),
 				Message:     fmt.Sprintf("热控温度%d异常: %.1f℃", i+1, temp),
 				Timestamp:   metrics.Timestamp,
-				FaultCode:   "CJB-RG-ZD-4",
+				FaultCode:   "YW-RG-ZD-4",
 				MetricValue: temp,
 			})
 		}
@@ -215,60 +257,143 @@ func CheckThermalThresholds(metrics *model.ThermalMetrics) []*model.AlertEvent {
 
 	if metrics.BatteryTemp1 < bat1Min || metrics.BatteryTemp1 > bat1Max {
 		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("THERM-BAT1-%d", time.Now().Unix()),
+			AlertID:     "YW-thermal-TMEZD01084_BatteryTemp1",
 			Type:        "TemperatureAbnormal",
 			Status:      model.AlertStatusFiring,
 			Source:      "BatteryTemp1",
 			Message:     fmt.Sprintf("蓄电池温度1异常: %.1f℃", metrics.BatteryTemp1),
 			Timestamp:   metrics.Timestamp,
-			FaultCode:   "CJB-RG-ZD-4",
+			FaultCode:   "YW-RG-ZD-4",
 			MetricValue: metrics.BatteryTemp1,
 		})
 	}
+
+	if metrics.BatteryTemp2 < bat2Min || metrics.BatteryTemp2 > bat2Max {
+		alerts = append(alerts, &model.AlertEvent{
+			AlertID:     "YW-thermal-TMEZD01085_BatteryTemp2",
+			Type:        "TemperatureAbnormal",
+			Status:      model.AlertStatusFiring,
+			Source:      "BatteryTemp2",
+			Message:     fmt.Sprintf("蓄电池温度2异常: %.1f℃", metrics.BatteryTemp2),
+			Timestamp:   metrics.Timestamp,
+			FaultCode:   "YW-RG-ZD-4",
+			MetricValue: metrics.BatteryTemp2,
+		})
+	}
+
+	now := time.Now().Unix()
+	checkHeater := func(alertID, source string, actual bool, expected *bool) {
+		if expected == nil {
+			return
+		}
+		isFiring := actual != *expected
+		value := 0.0
+		if actual {
+			value = 1
+		}
+		alerts = appendAlert(alerts, sm,
+			alertID, source, isFiring,
+			fmt.Sprintf("热控开关状态异常: %s 当前=%t, 期望=%t", source, actual, *expected),
+			fmt.Sprintf("热控开关状态已恢复: %s 当前=%t", source, actual),
+			value, map[string]interface{}{"expected": *expected, "actual": actual}, now)
+	}
+
+	checkHeater("YW-thermal-TMEZD01121_PlatformHeater", "TMEZD01121_PlatformHeater",
+		metrics.PlatformHeaterSwitch, tc.Thermal.PlatformHeatingExpected.Value)
+	checkHeater("YW-thermal-TMEZD01254_BatteryHeater", "TMEZD01254_BatteryHeater",
+		metrics.BatteryHeaterSwitch, tc.Thermal.BatteryHeatingExpected.Value)
+	checkHeater("YW-thermal-TMEZD01115_TankHeater", "TMEZD01115_TankHeater",
+		metrics.TankHeaterSwitch, tc.Thermal.TankHeatingExpected.Value)
 
 	return alerts
 }
 
 // CheckCommThresholds 检查通信服务阈值（当前仅触发告警）
 func CheckCommThresholds(metrics *model.CommMetrics) []*model.AlertEvent {
+	return CheckCommThresholdsWithState(metrics, nil)
+}
+
+// CheckCommThresholdsWithState 检查通信服务计数类指标（支持历史比较与恢复告警）
+func CheckCommThresholdsWithState(metrics *model.CommMetrics, sm *state.StateManager) []*model.AlertEvent {
 	if metrics == nil {
 		return nil
 	}
 	tc := config.GetThresholdConfig()
 	var alerts []*model.AlertEvent
-	serialExpected := intOrDefault(tc.Comm.ComSerialPort.Value, 1)
+	prev, _ := previousBusinessData(sm, "comm", metrics).(*model.CommMetrics)
 
-	// null 判断框架：后续可在此按配置项逐条扩展规则。
-	// 例如：if !isConfiguredInt(tc.Comm.ComSerialPort.Value) { ... }
-	if !isConfiguredInt(tc.Comm.ComSerialPort.Value) {
-		// 当前保持兼容：未配置时沿用默认值 1。
+	now := time.Now().Unix()
+	checkNotIncreased := func(alertID, source string, current, previous uint32) {
+		isFiring := current <= previous
+		alerts = appendAlert(alerts, sm,
+			alertID, source, isFiring,
+			fmt.Sprintf("%s 计数未增加: 上次=%d, 当前=%d", source, previous, current),
+			fmt.Sprintf("%s 计数已恢复增长: 上次=%d, 当前=%d", source, previous, current),
+			float64(current), map[string]interface{}{"previous": previous, "current": current}, now)
+	}
+	checkIncrease := func(alertID, source string, current, previous uint32) {
+		isFiring := current > previous
+		alerts = appendAlert(alerts, sm,
+			alertID, source, isFiring,
+			fmt.Sprintf("%s 计数增加: 上次=%d, 当前=%d", source, previous, current),
+			fmt.Sprintf("%s 计数未继续增加: 当前=%d", source, current),
+			float64(current), map[string]interface{}{"previous": previous, "current": current}, now)
+	}
+	checkExpected := func(alertID, source string, current uint8, expected *int) {
+		if expected == nil {
+			return
+		}
+		actual := int(current)
+		isFiring := actual != *expected
+		alerts = appendAlert(alerts, sm,
+			alertID, source, isFiring,
+			fmt.Sprintf("%s 状态与期望不一致: 当前=%d, 期望=%d", source, actual, *expected),
+			fmt.Sprintf("%s 状态已恢复: 当前=%d", source, actual),
+			float64(actual), map[string]interface{}{"expected": *expected, "actual": actual}, now)
 	}
 
-	if int(metrics.CANStatus) != 1 {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("COMM-CAN-%d", time.Now().Unix()),
-			Type:        "CommunicationFailure",
-			Status:      model.AlertStatusFiring,
-			Source:      "CANStatus",
-			Message:     "CAN通信无应答",
-			Timestamp:   metrics.Timestamp,
-			FaultCode:   "CJB-RG-ZD-2",
-			MetricValue: float64(metrics.CANStatus),
-		})
+	if prev != nil {
+		checkNotIncreased("YW-comm-TMEZD01004cjb_InstructionCount", "TMEZD01004cjb_InstructionCount",
+			metrics.ReceiveCmdCount, prev.ReceiveCmdCount)
+
+		allO1NotIncreased := metrics.O1ReceiveDeviceResponseCount <= prev.O1ReceiveDeviceResponseCount &&
+			metrics.O1ReceiveTelemetryResponseCount <= prev.O1ReceiveTelemetryResponseCount &&
+			metrics.O1ReceiveRemoteControlResponseCount <= prev.O1ReceiveRemoteControlResponseCount
+		alerts = appendAlert(alerts, sm,
+			"YW-comm-noresponse", "O1_ResponseCounts", allO1NotIncreased,
+			"通信O1响应计数均未增加",
+			"通信O1响应计数已恢复增长",
+			float64(metrics.O1ReceiveDeviceResponseCount+metrics.O1ReceiveTelemetryResponseCount+metrics.O1ReceiveRemoteControlResponseCount),
+			map[string]interface{}{
+				"previous_device":         prev.O1ReceiveDeviceResponseCount,
+				"previous_telemetry":      prev.O1ReceiveTelemetryResponseCount,
+				"previous_remote_control": prev.O1ReceiveRemoteControlResponseCount,
+				"current_device":          metrics.O1ReceiveDeviceResponseCount,
+				"current_telemetry":       metrics.O1ReceiveTelemetryResponseCount,
+				"current_remote_control":  metrics.O1ReceiveRemoteControlResponseCount,
+			}, now)
+
+		checkNotIncreased("YW-comm-TMEZD01150_ReceiveCTACount", "TMEZD01150_ReceiveCTACount",
+			metrics.ReceiveCTACount, prev.ReceiveCTACount)
+
+		checkIncrease("YW-comm-TMEZD01046_CheckErrorCount", "TMEZD01046_CheckErrorCount",
+			uint32(metrics.ParityErrorCount), uint32(prev.ParityErrorCount))
+		checkIncrease("YW-comm-TMEZD01047_FrameHeaderErrorCount", "TMEZD01047_FrameHeaderErrorCount",
+			uint32(metrics.FrameHeaderErrorCount), uint32(prev.FrameHeaderErrorCount))
+		checkIncrease("YW-comm-TMEZD01048_FrameLengthErrorCount", "TMEZD01048_FrameLengthErrorCount",
+			uint32(metrics.FrameLengthErrorCount), uint32(prev.FrameLengthErrorCount))
+		checkIncrease("YW-comm-TMEZD01052_ResetCount", "TMEZD01052_ResetCount",
+			uint32(metrics.SerialResetCount), uint32(prev.SerialResetCount))
+		checkIncrease("YW-comm-Com_No_telemetry_count", "Com_No_telemetry_count",
+			metrics.NoTelemetryCount, prev.NoTelemetryCount)
 	}
 
-	if int(metrics.SerialStatus) != serialExpected {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     fmt.Sprintf("COMM-SERIAL-%d", time.Now().Unix()),
-			Type:        "CommunicationFailure",
-			Status:      model.AlertStatusFiring,
-			Source:      "SerialStatus",
-			Message:     "串口通信无遥测",
-			Timestamp:   metrics.Timestamp,
-			FaultCode:   "CJB-O2-CS-1",
-			MetricValue: float64(metrics.SerialStatus),
-		})
-	}
+	checkExpected("YW-comm-TMEZD01155_SwitchState", "TMEZD01155_SwitchState",
+		metrics.TransmitSwitch, tc.Comm.TransmissionExpected.Value)
+	checkExpected("YW-comm-TMEZD01167_TelemetryEncryptStatus", "TMEZD01167_TelemetryEncryptStatus",
+		metrics.TelemetryEncryptStatus, tc.Comm.TelemetryExpected.Value)
+	checkExpected("YW-comm-TMEZD01168_TelemetryEncryptStatus", "TMEZD01168_TelemetryEncryptStatus",
+		metrics.TelecontrolEncryptStatus, tc.Comm.RemoteControlExpected.Value)
 
 	return alerts
 }
@@ -281,185 +406,216 @@ func CheckActuatorThresholds(metrics *model.ActuatorMetrics) []*model.AlertEvent
 	tc := config.GetThresholdConfig()
 	var alerts []*model.AlertEvent
 
-	expectedX := valueOrDefault(tc.MomentumWheel.WheelSpeed.X.Value, 100)
-	expectedY := valueOrDefault(tc.MomentumWheel.WheelSpeed.Y.Value, 100)
-	expectedZ := valueOrDefault(tc.MomentumWheel.WheelSpeed.Z.Value, 100)
 	tolerance := valueOrDefault(tc.MomentumWheel.WheelSpeedTolerance, 10)
+	xMin, xMax := wheelRange(tc.MomentumWheel.WheelSpeedX, 100, tolerance)
+	yMin, yMax := wheelRange(tc.MomentumWheel.WheelSpeedY, 100, tolerance)
+	zMin, zMax := wheelRange(tc.MomentumWheel.WheelSpeedZ, 100, tolerance)
 
-	checkWheel := func(speed int16, axis string, expected float64) {
+	checkWheel := func(speed int16, axis string, min, max float64) {
 		s := float64(speed)
-		if s < expected-tolerance || s > expected+tolerance {
+		if s < min || s > max {
 			alerts = append(alerts, &model.AlertEvent{
-				AlertID:     fmt.Sprintf("ACTUATOR-%s-%d", axis, time.Now().Unix()),
+				AlertID:     fmt.Sprintf("YW-MomentumWheel-WheelSpeed_%s", axis),
 				Type:        "ActuatorAbnormal",
 				Status:      model.AlertStatusFiring,
 				Source:      fmt.Sprintf("WheelSpeed%s", axis),
-				Message:     fmt.Sprintf("%s轴动量轮转速异常: %d (期望约100转)", axis, speed),
+				Message:     fmt.Sprintf("%s轴动量轮转速异常: %d (正常[%.0f,%.0f]rpm)", axis, speed, min, max),
 				Timestamp:   metrics.Timestamp,
-				FaultCode:   "CJB-O2-CS-16",
+				FaultCode:   "YW-O2-CS-16",
 				MetricValue: float64(speed),
 			})
 		}
 	}
 
-	checkWheel(metrics.WheelSpeedX, "X", expectedX)
-	checkWheel(metrics.WheelSpeedY, "Y", expectedY)
-	checkWheel(metrics.WheelSpeedZ, "Z", expectedZ)
+	checkWheel(metrics.WheelSpeedX, "X", xMin, xMax)
+	checkWheel(metrics.WheelSpeedY, "Y", yMin, yMax)
+	checkWheel(metrics.WheelSpeedZ, "Z", zMin, zMax)
 
 	return alerts
 }
 
-// CheckNodeThresholds 检查节点指标阈值（无状态入口）
-func CheckNodeThresholds(metrics *model.NodeMetrics) []*model.AlertEvent {
-	return CheckNodeThresholdsWithState(metrics, nil)
+func wheelRange(t config.MetricThreshold, expected, tolerance float64) (float64, float64) {
+	if t.Min != nil || t.Max != nil {
+		return rangeOrDefault(t, expected-tolerance, expected+tolerance)
+	}
+	if t.Value != nil {
+		expected = normalizeByUnit(*t.Value, t.Unit)
+	}
+	return expected - tolerance, expected + tolerance
 }
 
-// CheckNodeThresholdsWithState 检查节点指标（支持恢复告警）
-func CheckNodeThresholdsWithState(metrics *model.NodeMetrics, sm *state.StateManager) []*model.AlertEvent {
+// CheckAttitudeOrbitControlThresholds 检查姿态轨道控制阈值（无状态入口）
+func CheckAttitudeOrbitControlThresholds(metrics *model.AttitudeOrbitControlMetrics) []*model.AlertEvent {
+	return CheckAttitudeOrbitControlThresholdsWithState(metrics, nil)
+}
+
+// CheckAttitudeOrbitControlThresholdsWithState 检查姿态轨道控制指标（支持恢复告警）
+func CheckAttitudeOrbitControlThresholdsWithState(metrics *model.AttitudeOrbitControlMetrics, sm *state.StateManager) []*model.AlertEvent {
 	if metrics == nil {
 		return nil
 	}
 
-	tc := config.GetThresholdConfig()
 	now := time.Now().Unix()
 	var alerts []*model.AlertEvent
-
-	isFiring := metrics.Status != "online"
-	alerts = appendAlert(alerts, sm,
-		"NODE_OFFLINE", metrics.ID, isFiring, true,
-		"node_offline", "MS-NO-FL-1",
-		fmt.Sprintf("节点 %s 离线", metrics.ID),
-		fmt.Sprintf("节点 %s 已恢复在线", metrics.ID),
-		0, nil, now)
-
-	if cpuUsage, ok := nodeCPUUsage(metrics); ok {
-		isFiring = cpuUsage > tc.Node.CPUUsageMax
-		alerts = appendAlert(alerts, sm,
-			"NODE_CPU_HIGH", metrics.ID, isFiring, true,
-			"cpu_high", "MS-NO-FL-2",
-			fmt.Sprintf("节点 %s CPU使用率过高: %.1f%%", metrics.ID, cpuUsage),
-			fmt.Sprintf("节点 %s CPU使用率已恢复: %.1f%%", metrics.ID, cpuUsage),
-			cpuUsage, nil, now)
+	prev, _ := previousBusinessData(sm, "attitude_orbit_control", metrics).(*model.AttitudeOrbitControlMetrics)
+	if prev == nil {
+		return alerts
 	}
 
-	if metrics.MemoryTotal > 0 {
-		memoryPercent := float64(metrics.MemoryTotal-metrics.MemoryFree) / float64(metrics.MemoryTotal) * 100
-		isFiring = memoryPercent > tc.Node.MemoryUsageMax
+	checkIncrease := func(key string) {
+		actual, ok := intValueFromMap(metrics.Values, key)
+		previous, prevOK := intValueFromMap(prev.Values, key)
+		metadata := map[string]interface{}{
+			"present":          ok,
+			"previous_present": prevOK,
+		}
+		if ok {
+			metadata["actual"] = actual
+		}
+		if prevOK {
+			metadata["previous"] = previous
+		}
+
+		isFiring := ok && prevOK && actual > previous
+		metricValue := 0.0
+		if ok {
+			metricValue = float64(actual)
+		}
 		alerts = appendAlert(alerts, sm,
-			"NODE_MEMORY_HIGH", metrics.ID, isFiring, true,
-			"memory_high", "MS-NO-FL-3",
-			fmt.Sprintf("节点 %s 内存使用率过高: %.1f%%", metrics.ID, memoryPercent),
-			fmt.Sprintf("节点 %s 内存使用率已恢复: %.1f%%", metrics.ID, memoryPercent),
-			memoryPercent, nil, now)
+			"YW-AttitudeOrbitControl-"+aocAlertKey(key), key, isFiring,
+			fmt.Sprintf("姿态轨道控制计数 %s 增加: 上次=%s, 当前=%s", key, actualValueText(prevOK, previous), actualValueText(ok, actual)),
+			fmt.Sprintf("姿态轨道控制计数 %s 未继续增加: 当前=%s", key, actualValueText(ok, actual)),
+			metricValue, metadata, now)
 	}
 
-	if metrics.DiskTotal > 0 {
-		diskPercent := (metrics.DiskTotal - metrics.DiskFree) / metrics.DiskTotal * 100
-		isFiring = diskPercent > tc.Node.DiskUsageMax
-		alerts = appendAlert(alerts, sm,
-			"NODE_DISK_HIGH", metrics.ID, isFiring, true,
-			"disk_high", "MS-NO-FL-4",
-			fmt.Sprintf("节点 %s 磁盘使用率过高: %.1f%%", metrics.ID, diskPercent),
-			fmt.Sprintf("节点 %s 磁盘使用率已恢复: %.1f%%", metrics.ID, diskPercent),
-			diskPercent, nil, now)
+	for _, key := range attitudeOrbitControlIncreaseKeys() {
+		checkIncrease(key)
 	}
 
 	return alerts
 }
 
-// CheckContainerThresholds 检查容器指标阈值（无状态入口）
-func CheckContainerThresholds(metrics *model.ContainerMetrics) []*model.AlertEvent {
-	return CheckContainerThresholdsWithState(metrics, nil)
+func actualValueText(ok bool, actual int) string {
+	if !ok {
+		return "missing"
+	}
+	return strconv.Itoa(actual)
 }
 
-// CheckContainerThresholdsWithState 检查容器指标（支持恢复告警）
-func CheckContainerThresholdsWithState(metrics *model.ContainerMetrics, sm *state.StateManager) []*model.AlertEvent {
-	if metrics == nil {
-		return nil
+func aocAlertKey(key string) string {
+	// 故障树模板里 GNSS 复位计数使用 TMEZD01044，阈值配置当前键为 TMEZD01054。
+	// 这里按故障树 alert_id 输出，保证告警可以路由到 basic_event。
+	if key == "TMEZD01054_ResetCount" {
+		return "TMEZD01044_ResetCount"
 	}
-
-	tc := config.GetThresholdConfig()
-	now := time.Now().Unix()
-	md := containerMetadata(metrics)
-	var alerts []*model.AlertEvent
-
-	isFiring := metrics.DeployStatus != "success"
-	alerts = appendAlert(alerts, sm,
-		"CONTAINER_DEPLOY_FAIL", metrics.ID, isFiring, true,
-		"deployment_failure", "MS-CN-FL-1",
-		fmt.Sprintf("容器 %s 部署失败: %s", metrics.ID, metrics.DeployStatus),
-		fmt.Sprintf("容器 %s 部署状态已恢复: %s", metrics.ID, metrics.DeployStatus),
-		0, md, now)
-
-	cpuUsage := metrics.CPUUsage.Total
-	isFiring = cpuUsage > tc.Container.CPUUsageMax
-	alerts = appendAlert(alerts, sm,
-		"CONTAINER_CPU_HIGH", metrics.ID, isFiring, true,
-		"cpu_high", "MS-CN-FL-5",
-		fmt.Sprintf("容器 %s CPU使用率过高: %.1f%%", metrics.ID, cpuUsage),
-		fmt.Sprintf("容器 %s CPU使用率已恢复: %.1f%%", metrics.ID, cpuUsage),
-		cpuUsage, md, now)
-
-	if metrics.MemoryLimit > 0 {
-		memoryPercent := float64(metrics.MemoryUsage) / float64(metrics.MemoryLimit) * 100
-		isFiring = memoryPercent > tc.Container.MemoryUsageMax
-		alerts = appendAlert(alerts, sm,
-			"CONTAINER_MEMORY_HIGH", metrics.ID, isFiring, true,
-			"memory_high", "MS-CN-FL-5",
-			fmt.Sprintf("容器 %s 内存使用率过高: %.1f%%", metrics.ID, memoryPercent),
-			fmt.Sprintf("容器 %s 内存使用率已恢复: %.1f%%", metrics.ID, memoryPercent),
-			memoryPercent, md, now)
-	}
-
-	if metrics.SizeLimit > 0 {
-		diskPercent := float64(metrics.SizeUsage) / float64(metrics.SizeLimit) * 100
-		isFiring = diskPercent > tc.Container.DiskUsageMax
-		alerts = appendAlert(alerts, sm,
-			"CONTAINER_DISK_HIGH", metrics.ID, isFiring, true,
-			"disk_high", "MS-CN-FL-6",
-			fmt.Sprintf("容器 %s 磁盘占用率过高: %.1f%%", metrics.ID, diskPercent),
-			fmt.Sprintf("容器 %s 磁盘占用率已恢复: %.1f%%", metrics.ID, diskPercent),
-			diskPercent, md, now)
-	}
-
-	return alerts
+	return key
 }
 
-// CheckServiceThresholds 检查服务指标阈值（无状态入口）
-func CheckServiceThresholds(metrics *model.ServiceMetrics) []*model.AlertEvent {
-	return CheckServiceThresholdsWithState(metrics, nil)
+func attitudeOrbitControlFaultCode(key string) string {
+	switch key {
+	case "GNSS_No_telemetry_count":
+		return "YW-O2-CS-7"
+	case "TMEZD01041_CheckErrorCount",
+		"TMEZD01042_FrameHeaderErrorCount",
+		"TMEZD01043_FrameLengthErrorCount",
+		"TMEZD01054_ResetCount":
+		return "YW-O2-CS-8"
+	case "Gyroscope_No_telemetry_count":
+		return "YW-O2-CS-9"
+	case "TMEZD01021_CheckErrorCount",
+		"TMEZD01022_FrameHeaderErrorCount",
+		"TMEZD01023_FrameLengthErrorCount",
+		"TMEZD01024_ResetCount":
+		return "YW-O2-CS-10"
+	case "MEMS_No_telemetry_count":
+		return "YW-O2-CS-11"
+	case "TMEZD01025_CheckErrorCount",
+		"TMEZD01026_FrameHeaderErrorCount",
+		"TMEZD01027_FrameLengthErrorCount",
+		"TMEZD01028_ResetCount":
+		return "YW-O2-CS-12"
+	case "StarTrackerl_No_telemetry_count":
+		return "YW-O2-CS-13"
+	case "TMEZD01033_CheckErrorCount",
+		"TMEZD01034_FrameHeaderErrorCount",
+		"TMEZD01035_FrameLengthErrorCount",
+		"TMEZD01036_ResetCount",
+		"TMEZD01037_CheckErrorCount",
+		"TMEZD01038_FrameHeaderErrorCount",
+		"TMEZD01039_FrameLengthErrorCount",
+		"TMEZD01040_ResetCount":
+		return "YW-O2-CS-14"
+	default:
+		return "YW-AOC-UNKNOWN"
+	}
 }
 
-// CheckServiceThresholdsWithState 检查服务指标（支持恢复告警）
-func CheckServiceThresholdsWithState(metrics *model.ServiceMetrics, sm *state.StateManager) []*model.AlertEvent {
-	if metrics == nil {
-		return nil
+func intValue(v interface{}) (int, bool) {
+	switch x := v.(type) {
+	case int:
+		return x, true
+	case int8:
+		return int(x), true
+	case int16:
+		return int(x), true
+	case int32:
+		return int(x), true
+	case int64:
+		return int(x), true
+	case uint:
+		return int(x), true
+	case uint8:
+		return int(x), true
+	case uint16:
+		return int(x), true
+	case uint32:
+		return int(x), true
+	case uint64:
+		return int(x), true
+	case float64:
+		return int(x), x == float64(int(x))
+	case float32:
+		return int(x), x == float32(int(x))
+	case string:
+		n, err := strconv.Atoi(strings.TrimSpace(x))
+		return n, err == nil
+	default:
+		return 0, false
 	}
+}
 
-	tc := config.GetThresholdConfig()
-	now := time.Now().Unix()
-	var alerts []*model.AlertEvent
-	requireHealthy := tc.Service.RequireHealthy
-	instanceOnlineMin := tc.Service.InstanceOnlineMin
-	if instanceOnlineMin <= 0 {
-		instanceOnlineMin = 1
+func intValueFromMap(values map[string]interface{}, key string) (int, bool) {
+	if values == nil {
+		return 0, false
 	}
+	return intValue(values[key])
+}
 
-	isFiring := requireHealthy && !metrics.Healthy
-	alerts = appendAlert(alerts, sm,
-		"SERVICE_UNHEALTHY", metrics.ID, isFiring, true,
-		"service_unhealthy", "MS-SV-FL-1",
-		fmt.Sprintf("服务 %s 健康检查失败", metrics.ID),
-		fmt.Sprintf("服务 %s 健康检查已恢复", metrics.ID),
-		0, nil, now)
-
-	isFiring = metrics.InstanceOnline < instanceOnlineMin
-	alerts = appendAlert(alerts, sm,
-		"SERVICE_NO_ONLINE_NODES", metrics.ID, isFiring, true,
-		"no_online_nodes", "MS-SV-FL-5",
-		fmt.Sprintf("服务 %s 无在线节点", metrics.ID),
-		fmt.Sprintf("服务 %s 在线节点已恢复", metrics.ID),
-		0, nil, now)
-
-	return alerts
+func attitudeOrbitControlIncreaseKeys() []string {
+	return []string{
+		"GNSS_No_telemetry_count",
+		"TMEZD01041_CheckErrorCount",
+		"TMEZD01042_FrameHeaderErrorCount",
+		"TMEZD01043_FrameLengthErrorCount",
+		"TMEZD01054_ResetCount",
+		"Gyroscope_No_telemetry_count",
+		"TMEZD01021_CheckErrorCount",
+		"TMEZD01022_FrameHeaderErrorCount",
+		"TMEZD01023_FrameLengthErrorCount",
+		"TMEZD01024_ResetCount",
+		"MEMS_No_telemetry_count",
+		"TMEZD01025_CheckErrorCount",
+		"TMEZD01026_FrameHeaderErrorCount",
+		"TMEZD01027_FrameLengthErrorCount",
+		"TMEZD01028_ResetCount",
+		"StarTrackerl_No_telemetry_count",
+		"TMEZD01033_CheckErrorCount",
+		"TMEZD01034_FrameHeaderErrorCount",
+		"TMEZD01035_FrameLengthErrorCount",
+		"TMEZD01036_ResetCount",
+		"TMEZD01037_CheckErrorCount",
+		"TMEZD01038_FrameHeaderErrorCount",
+		"TMEZD01039_FrameLengthErrorCount",
+		"TMEZD01040_ResetCount",
+	}
 }

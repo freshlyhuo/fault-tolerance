@@ -99,11 +99,9 @@ func main() {
 	// 创建告警接收器包装器（集成故障诊断）
 	businessWrapper := diagnosisReceiver.NewReceiverWrapper(businessReceiver)
 
-	// 创建业务层调度器和接收器
+	// 创建业务层调度器
 	businessDispatcher := healthBusiness.NewDispatcher(stateManager)
 	businessDispatcher.SetDiagnosisReceiver(businessWrapper)
-	businessRecv := healthBusiness.NewReceiver(businessDispatcher)
-	go businessRecv.Start(ctx)
 	fmt.Println("  ✓ 业务层调度器已创建")
 
 	// ========== 场景 2：故障持续不恢复 ==========
@@ -123,8 +121,7 @@ func main() {
 func runBusinessScenarioNoRecovery(ctx context.Context, dispatcher *healthBusiness.Dispatcher) {
 	fmt.Println("\n[业务层] 场景 2: 故障持续不恢复 ")
 	dispatcher.HandleBusinessMetrics(ctx, &healthModel.BusinessMetrics{
-		ComponentType: 0x03,
-		Timestamp:     time.Now().Unix(),
+		Timestamp: time.Now().Unix(),
 		Data: &healthModel.PowerMetrics{
 			BatteryVoltage: 18.5,
 			BusVoltage:     18.0,

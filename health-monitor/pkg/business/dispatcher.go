@@ -1,5 +1,5 @@
 /*将业务指标 push 到 state manager,统一通路：StateManager.UpdateMetric()
-*/
+ */
 package business
 
 import (
@@ -33,9 +33,8 @@ func (d *Dispatcher) SetDiagnosisReceiver(receiver alert.DiagnosisReceiver) {
 
 // HandleBusinessMetrics 处理业务层解析后的指标
 func (d *Dispatcher) HandleBusinessMetrics(ctx context.Context, bm *model.BusinessMetrics) {
-	fmt.Printf("[业务层Dispatcher] 收到解析指标：Comp=0x%02X Timestamp=%d\n", 
-		bm.ComponentType, bm.Timestamp)
-	
+	fmt.Printf("[业务层Dispatcher] 收到指标：Type=%T Timestamp=%d\n", bm.Data, bm.Timestamp)
+
 	// 1. 推送到 StateManager
 	if d.stateManager != nil {
 		businessMetric := &state.BusinessMetric{
@@ -45,12 +44,12 @@ func (d *Dispatcher) HandleBusinessMetrics(ctx context.Context, bm *model.Busine
 		if err := d.stateManager.UpdateMetric(businessMetric); err != nil {
 			fmt.Printf("[业务层Dispatcher] 保存到StateManager失败: %v\n", err)
 		} else {
-			fmt.Printf("[业务层Dispatcher] 已保存到StateManager: Component=0x%02X\n", bm.ComponentType)
+			fmt.Printf("[业务层Dispatcher] 已保存到StateManager: Type=%T\n", bm.Data)
 		}
 	}
-	
+
 	// 2. 发送到告警生成器进行阈值判断
 	// Generator会调用threshold检查，生成告警事件并直接输出
 	d.generator.ProcessBusinessMetrics(ctx, bm)
-	
+
 }

@@ -31,85 +31,44 @@ func (g *Generator) ProcessBusinessMetrics(ctx context.Context, bm *model.Busine
 	var alerts []*model.AlertEvent
 
 	sm := g.stateManager
-	
-	// 根据组件类型调用对应的阈值检查函数
-	switch bm.ComponentType {
-	case 0x03: // CompPower - 供电服务
-		if powerData, ok := bm.Data.(*model.PowerMetrics); ok {
-			if sm != nil {
-				// 使用有状态的检查（支持恢复告警）
-				alerts = CheckPowerThresholdsWithState(powerData, sm)
-			} else {
-				// 使用无状态的检查（仅触发告警）
-				alerts = CheckPowerThresholds(powerData)
-			}
+
+	// 根据具体数据类型调用对应的阈值检查函数。发布订阅采集不再依赖旧报文组件号。
+	switch data := bm.Data.(type) {
+	case *model.PowerMetrics:
+		if sm != nil {
+			// 使用有状态的检查（支持恢复告警）
+			alerts = CheckPowerThresholdsWithState(data, sm)
+		} else {
+			// 使用无状态的检查（仅触发告警）
+			alerts = CheckPowerThresholds(data)
 		}
-		
-	case 0x06: // CompThermal - 热控服务
-		if thermalData, ok := bm.Data.(*model.ThermalMetrics); ok {
-			alerts = CheckThermalThresholds(thermalData)
+
+	case *model.ThermalMetrics:
+		if sm != nil {
+			alerts = CheckThermalThresholdsWithState(data, sm)
+		} else {
+			alerts = CheckThermalThresholds(data)
 		}
-		
-	case 0x02: // CompComm - 通信服务
-		if commData, ok := bm.Data.(*model.CommMetrics); ok {
-			alerts = CheckCommThresholds(commData)
+
+	case *model.CommMetrics:
+		if sm != nil {
+			alerts = CheckCommThresholdsWithState(data, sm)
+		} else {
+			alerts = CheckCommThresholds(data)
 		}
-		
-	case 0x0B: // CompActuator - 姿态控制机构
-		if actuatorData, ok := bm.Data.(*model.ActuatorMetrics); ok {
-			alerts = CheckActuatorThresholds(actuatorData)
+
+	case *model.ActuatorMetrics:
+		alerts = CheckActuatorThresholds(data)
+
+	case *model.AttitudeOrbitControlMetrics:
+		if sm != nil {
+			alerts = CheckAttitudeOrbitControlThresholdsWithState(data, sm)
+		} else {
+			alerts = CheckAttitudeOrbitControlThresholds(data)
 		}
-		
-	// 可以继续添加其他组件类型的处理
 	}
-	
+
 	// 如果有告警，进行处理和输出
-	if len(alerts) > 0 {
-		g.outputAlerts(alerts)
-	}
-}
-
-// ProcessMicroserviceMetrics 处理微服务层指标，生成告警事件
-func (g *Generator) ProcessMicroserviceMetrics(ctx context.Context, ms *model.MicroServiceMetricsSet) {
-	var alerts []*model.AlertEvent
-
-	sm := g.stateManager
-	
-	// 1. 阈值告警检查（已经发生的故障）
-	// 处理节点指标
-	for _, nodeMetrics := range ms.NodeMetrics {
-		var nodeAlerts []*model.AlertEvent
-		if sm != nil {
-			nodeAlerts = CheckNodeThresholdsWithState(&nodeMetrics, sm)
-		} else {
-			nodeAlerts = CheckNodeThresholds(&nodeMetrics)
-		}
-		alerts = append(alerts, nodeAlerts...)
-	}
-	
-	// 处理容器指标
-	for _, containerMetrics := range ms.ContainerMetrics {
-		var containerAlerts []*model.AlertEvent
-		if sm != nil {
-			containerAlerts = CheckContainerThresholdsWithState(&containerMetrics, sm)
-		} else {
-			containerAlerts = CheckContainerThresholds(&containerMetrics)
-		}
-		alerts = append(alerts, containerAlerts...)
-	}
-	
-	// 处理服务指标
-	for _, serviceMetrics := range ms.ServiceMetrics {
-		var serviceAlerts []*model.AlertEvent
-		if sm != nil {
-			serviceAlerts = CheckServiceThresholdsWithState(&serviceMetrics, sm)
-		} else {
-			serviceAlerts = CheckServiceThresholds(&serviceMetrics)
-		}
-		alerts = append(alerts, serviceAlerts...)
-	}
-	
-	// 2. 如果有告警，进行处理和输出
 	if len(alerts) > 0 {
 		g.outputAlerts(alerts)
 	}
@@ -117,9 +76,6 @@ func (g *Generator) ProcessMicroserviceMetrics(ctx context.Context, ms *model.Mi
 
 // outputAlerts 输出告警事件
 func (g *Generator) outputAlerts(alerts []*model.AlertEvent) {
-	// 告警压缩：去重和合并
-	alerts = g.deduplicateAlerts(alerts)
-	
 	// 过滤掉恢复告警（resolved状态），只输出 firing 告警
 	var firingAlerts []*model.AlertEvent
 	for _, alert := range alerts {
@@ -127,7 +83,7 @@ func (g *Generator) outputAlerts(alerts []*model.AlertEvent) {
 			firingAlerts = append(firingAlerts, alert)
 		}
 	}
-	
+
 	// 如果有 firing 告警，统一输出
 	if len(firingAlerts) > 0 {
 		fmt.Println("\n========== 告警事件 ==========")
@@ -138,7 +94,7 @@ func (g *Generator) outputAlerts(alerts []*model.AlertEvent) {
 		fmt.Println("==============================")
 		fmt.Println()
 	}
-	
+
 	// 发送告警到故障诊断模块（如果已配置）
 	if g.alertAdapter != nil {
 		if err := g.alertAdapter.SendAlerts(alerts); err != nil {
@@ -172,21 +128,4 @@ func (g *Generator) printAlert(alert *model.AlertEvent) {
 	fmt.Printf("    消息: %s\n", alert.Message)
 	fmt.Printf("    指标值: %.2f\n", alert.MetricValue)
 	fmt.Printf("    时间戳: %d\n\n", alert.Timestamp)
-}
-
-// deduplicateAlerts 告警去重
-func (g *Generator) deduplicateAlerts(alerts []*model.AlertEvent) []*model.AlertEvent {
-	// 简单去重：基于 Source + Type + FaultCode
-	seen := make(map[string]bool)
-	var result []*model.AlertEvent
-	
-	for _, alert := range alerts {
-		key := fmt.Sprintf("%s-%s-%s", alert.Source, alert.Type, alert.FaultCode)
-		if !seen[key] {
-			seen[key] = true
-			result = append(result, alert)
-		}
-	}
-	
-	return result
 }

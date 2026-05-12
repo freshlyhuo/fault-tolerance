@@ -94,7 +94,7 @@
   },
   "AttitudeOrbitControl":{
     "GNSS_No_telemetry_count": null,
-    "GNSS__ExpectedState":null,
+    "GNSS_ExpectedState":null,
     "GNSS_SoftwareRecInstructionCount":null,
     "GNSS_CorrectRecInstructionCount": null,
     "GNSS_CommandSeriaPortCount": null,

@@ -1,5 +1,8 @@
-/* 节点、容器、业务、服务状态结构
-ID 命名规范（node-id / container-id / service-id / business-component-type） */
+/*
+	节点、容器、业务、服务状态结构
+
+ID 命名规范（node-id / container-id / service-id / business-metric-type）
+*/
 package state
 
 import (
@@ -64,8 +67,20 @@ type BusinessMetric struct {
 }
 
 func (m *BusinessMetric) GetID() string {
-	// 使用组件类型作为ID
-	return string(rune(m.Data.ComponentType))
+	switch m.Data.Data.(type) {
+	case *model.PowerMetrics:
+		return "power"
+	case *model.ThermalMetrics:
+		return "thermal"
+	case *model.CommMetrics:
+		return "comm"
+	case *model.ActuatorMetrics:
+		return "momentum_wheel"
+	case *model.AttitudeOrbitControlMetrics:
+		return "attitude_orbit_control"
+	default:
+		return "unknown"
+	}
 }
 func (m *BusinessMetric) GetType() MetricType  { return MetricTypeBusiness }
 func (m *BusinessMetric) GetTimestamp() int64  { return m.Timestamp }
@@ -73,9 +88,9 @@ func (m *BusinessMetric) GetData() interface{} { return m.Data }
 
 // StateSnapshot 状态快照
 type StateSnapshot struct {
-	Timestamp int64                  `json:"timestamp"`
-	Nodes     []model.NodeMetrics    `json:"nodes"`
+	Timestamp  int64                    `json:"timestamp"`
+	Nodes      []model.NodeMetrics      `json:"nodes"`
 	Containers []model.ContainerMetrics `json:"containers"`
-	Services  []model.ServiceMetrics `json:"services"`
-	Business  []model.BusinessMetrics `json:"business"`
+	Services   []model.ServiceMetrics   `json:"services"`
+	Business   []model.BusinessMetrics  `json:"business"`
 }

@@ -32,10 +32,8 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
 
 	// 加载业务层故障树
 	businessLoader := diagnosisConfig.NewLoader("./fault-diagnosis/configs/fault_tree_business.json")
@@ -102,11 +100,9 @@ func main() {
 	// 创建告警接收器包装器（集成故障诊断）
 	businessWrapper := diagnosisReceiver.NewReceiverWrapper(businessReceiver)
 
-	// 创建业务层调度器和接收器
+	// 创建业务层调度器
 	businessDispatcher := healthBusiness.NewDispatcher(stateManager)
 	businessDispatcher.SetDiagnosisReceiver(businessWrapper)
-	businessRecv := healthBusiness.NewReceiver(businessDispatcher)
-	go businessRecv.Start(ctx)
 	fmt.Println("  ✓ 业务层调度器已创建")
 
 	// ========== 场景 1：蓄电池和母线电压异常 ==========
@@ -129,8 +125,7 @@ func main() {
 func runBusinessScenario3(ctx context.Context, dispatcher *healthBusiness.Dispatcher) {
 	fmt.Println("\n[业务层] 场景 1: 蓄电池和母线电压异常 (应触发故障)\t")
 	dispatcher.HandleBusinessMetrics(ctx, &healthModel.BusinessMetrics{
-		ComponentType: 0x03,
-		Timestamp:     time.Now().Unix(),
+		Timestamp: time.Now().Unix(),
 		Data: &healthModel.PowerMetrics{
 			BatteryVoltage: 19.0,
 			BusVoltage:     19.0,
@@ -142,8 +137,7 @@ func runBusinessScenario3(ctx context.Context, dispatcher *healthBusiness.Dispat
 	time.Sleep(1 * time.Second)
 	fmt.Println("\n[业务层] 场景 1: 1s 后恢复正常数据")
 	dispatcher.HandleBusinessMetrics(ctx, &healthModel.BusinessMetrics{
-		ComponentType: 0x03,
-		Timestamp:     time.Now().Unix(),
+		Timestamp: time.Now().Unix(),
 		Data: &healthModel.PowerMetrics{
 			BatteryVoltage: 26.0,
 			BusVoltage:     26.0,

@@ -430,7 +430,7 @@ AlertEvent 生成与输出
 | 数据结构 | 所在位置 | 核心字段 | 说明 |
 |----------|----------|----------|------|
 | `MicroServiceMetricsSet` | `pkg/models/metrics.go` | `NodeMetrics`、`ContainerMetrics`、`ServiceMetrics` | 微服务层统一指标聚合对象。 |
-| `BusinessMetrics` | `pkg/models/metrics.go` | `ComponentType`、`Timestamp`、`Data` | 业务层解析后的统一指标封装。 |
+| `BusinessMetrics` | `pkg/models/metrics.go` | `Timestamp`、`Data` | 业务层指标统一封装，按 `Data` 的具体指标类型路由。 |
 | `NodeMetrics` | `pkg/models/metrics.go` | `ID`、`Status`、`CPUUsage`、内存/磁盘字段 | 节点监控指标模型。 |
 | `ContainerMetrics` | `pkg/models/metrics.go` | `ID`、`DeployStatus`、`CPUUsage`、内存/磁盘字段 | 容器监控指标模型。 |
 | `ServiceMetrics` | `pkg/models/metrics.go` | `ID`、`Healthy`、`InstanceOnline`、`Status` | 服务监控指标模型。 |

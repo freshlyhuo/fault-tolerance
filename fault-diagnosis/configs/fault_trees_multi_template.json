@@ -70,28 +70,16 @@
           "recovery_plan_id": "RP-002",
           "name": "cjbCAN communication error",
           "description": "cjbCAN通信异常",
-          "gate_type": "AND",
-          "children": ["NOT-T2-EVT-001", "NOT-T2-EVT-002","T2-EVT-003"]
+          "gate_type": "BASIC",
+          "children": ["T2-EVT-001"]
         }
       ],
       "basic_events": [
         {
           "event_id": "T2-EVT-001",
-          "name": "TMAN01050 current less than 1.2A",
-          "description": "TMAN01050 通用连接机构支架d-12V供电电流明显小于2.2A",
-          "alert_id": "YW-power-TMAN01050_Current"
-        },
-        {
-          "event_id": "T2-EVT-002",
-          "name": "TMAN0104612V_Voltage error",
-          "description": "TMAN01046 12V功率模块1电压不在13V左右",
-          "alert_id": "YW-power-TMAN0104612V_Voltage"
-        },
-        {
-          "event_id": "T2-EVT-003",
           "name": "CAN communication no response",
           "description": "CAN通信无应答",
-          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+          "alert_id": "YW-comm-noresponse"
         }
       ]
     },
@@ -715,7 +703,14 @@
           "name": "Telemetry acquisition of communication device faults",
           "description": "通信机遥测获取故障",
           "gate_type": "AND",
-          "children": ["T12-EVT-001","T12-EVT-002","T12-EVT-003","T12-EVT-004","T12-EVT-005"]
+          "children": ["T12-EVT-001","T12-MID-002"]
+        },
+        {
+          "event_id": "T12-MID-002",
+          "name": "Communication device fault count increased",
+          "description": "通信机故障计数增加",
+          "gate_type": "OR",
+          "children": ["T12-EVT-002","T12-EVT-003","T12-EVT-004","T12-EVT-005"]
         }
       ],
       "basic_events": [
@@ -1146,7 +1141,14 @@
           "name": "Gyroscope telemetry anomaly",
           "description": "陀螺仪遥测异常",
           "gate_type": "AND",
-          "children": ["T20-EVT-001","T20-EVT-002","T20-EVT-003","T20-EVT-004","T20-EVT-005"]
+          "children": ["T20-EVT-001","T20-MID-002"]
+        },
+        {
+          "event_id": "T20-MID-002",
+          "name": "Gyroscope fault count increased",
+          "description": "陀螺仪故障计数增加",
+          "gate_type": "OR",
+          "children": ["T20-EVT-002","T20-EVT-003","T20-EVT-004","T20-EVT-005"]
         }
       ],
       "basic_events": [
@@ -1234,7 +1236,14 @@
           "name": "MEMS telemetry anomaly",
           "description": "MEMS遥测异常",
           "gate_type": "AND",
-          "children": ["T22-EVT-001","T22-EVT-002","T22-EVT-003","T22-EVT-004","T22-EVT-005"]
+          "children": ["T22-EVT-001","T22-MID-002"]
+        },
+        {
+          "event_id": "T22-MID-002",
+          "name": "MEMS device fault count increased",
+          "description": "MEMS故障计数增加",
+          "gate_type": "OR",
+          "children": ["T22-EVT-002","T22-EVT-003","T22-EVT-004","T22-EVT-005"]
         }
       ],
       "basic_events": [
@@ -1322,7 +1331,14 @@
           "name": "StarTrackerl telemetry anomaly",
           "description": "星敏遥测异常",
           "gate_type": "AND",
-          "children": ["T24-EVT-001","T24-EVT-002","T24-EVT-003","T24-EVT-004","T24-EVT-005","T24-EVT-006","T24-EVT-007","T24-EVT-008","T24-EVT-009"]
+          "children": ["T24-EVT-001","T24-MID-002"]
+        },
+        {
+          "event_id": "T24-MID-002",
+          "name": "StarTrackerl fault count increased",
+          "description": "星敏故障计数增加",
+          "gate_type": "OR",
+          "children": ["T24-EVT-002","T24-EVT-003","T24-EVT-004","T24-EVT-005","T24-EVT-006","T24-EVT-007","T24-EVT-008","T24-EVT-009"]
         }
       ],
       "basic_events": [
@@ -1363,19 +1379,19 @@
           "alert_id": "YW-AttitudeOrbitControl-TMEZD01037_CheckErrorCount"
         },
         {
-          "event_id": "T24-EVT-003",
+          "event_id": "T24-EVT-007",
           "name": "TMEZD01038_FrameHeaderErrorCount abnormal",
           "description": "TMEZD01038cjb-星务-串口9星敏2帧头错误计数增加",
           "alert_id": "YW-AttitudeOrbitControl-TMEZD01038_FrameHeaderErrorCount"
         },
         {
-          "event_id": "T24-EVT-004",
+          "event_id": "T24-EVT-008",
           "name": "TMEZD01039_FrameLengthErrorCount abnormal",
           "description": "TMEZD01039cjb-星务-串口9星敏2帧长错误计数增加",
           "alert_id": "YW-AttitudeOrbitControl-TMEZD01039_FrameLengthErrorCount"
         },
         {
-          "event_id": "T24-EVT-005",
+          "event_id": "T24-EVT-009",
           "name": "TMEZD01040_ResetCount abnormal",
           "description": "TMEZD01040cjb-星务-串口9星敏2复位计数增加",
           "alert_id": "YW-AttitudeOrbitControl-TMEZD01040_ResetCount"
