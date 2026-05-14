@@ -183,6 +183,42 @@ alert:
     - mq
     - database
 ```
+
+## 硬件指标发布订阅
+
+健康监测作为 VSOA 客户端订阅硬件发布的参数，默认测试地址为 `127.0.0.1:3002`，默认 URL 为 `/hardware/metrics`。
+
+先启动测试发布端:
+
+```bash
+go run ./cmd/hardware_pubsub_server -addr 127.0.0.1:3002 -url /hardware/metrics
+```
+
+再启动健康监测:
+
+```bash
+go run ./cmd/monitor -enable-config-rpc=false -hardware-pubsub-addr 127.0.0.1:3002 -hardware-pubsub-url /hardware/metrics
+```
+
+发布端发送 JSON，客户端优先读取 VSOA `Data`，为空时读取 `Param`:
+
+```json
+{
+  "component": "momentum_wheel",
+  "timestamp": 1714032000,
+  "values": {
+    "SendCmd_K53029": 1,
+    "WheelSpeedX": 125,
+    "WheelSpeedY": 100,
+    "WheelSpeedZ": 100,
+    "MomentumWheel_No_telemetry_count": 1,
+    "MomentumWheel_CommandSeriaPortCount": 1
+  }
+}
+```
+
+当前客户端支持 `power`、`thermal`、`comm`、`momentum_wheel`、`attitude_orbit_control` 组件，并将订阅数据转成现有 `BusinessMetrics` 后进入 `StateManager` 和告警生成链路。
+
 # 业务层告警处理流程
 
 ## 架构概览

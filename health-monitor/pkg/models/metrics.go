@@ -201,10 +201,22 @@ type TransceiverMetrics struct {
 type ActuatorMetrics struct {
 	Timestamp int64 // 时间戳
 
+	// 指令状态
+	SendCmdK53029 uint8 // SendCmd_K53029: 动量轮转速设置指令
+
 	// 动量轮转速指标
 	WheelSpeedX int16 // TMEGNC2029: X轴动量轮转速(反馈), 正常约100转
 	WheelSpeedY int16 // TMEGNC2030: Y轴动量轮转速(反馈), 正常约100转
 	WheelSpeedZ int16 // TMEGNC2031: Z轴动量轮转速(反馈), 正常约100转
+
+	// 无遥测计数
+	NoTelemetryCount uint32 // MomentumWheel_No_telemetry_count
+
+	// 串口错误计数类指标
+	CheckErrorCount       uint32 // TMEZD01013_CheckErrorCount
+	FrameHeaderErrorCount uint32 // TMEZD01014_FrameHeaderErrorCount
+	FrameLengthErrorCount uint32 // TMEZD01015_FrameLengthErrorCount
+	ResetCount            uint32 // TMEZD01016_ResetCount
 
 	// 故障关联编号
 	FaultCodes []string // 关联的故障编号

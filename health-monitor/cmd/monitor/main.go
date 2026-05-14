@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"fault-tolerance/pkg/confighub"
+	"health-monitor/pkg/business"
 	"health-monitor/pkg/configrpc"
+	"health-monitor/pkg/pubsub"
 	"health-monitor/pkg/state"
 )
 
@@ -18,6 +20,10 @@ func main() {
 	// 命令行参数
 	enableConfigRPC := flag.Bool("enable-config-rpc", true, "是否启用VSOA配置RPC服务")
 	configRPCAddr := flag.String("config-rpc-addr", "127.0.0.1:3001", "VSOA配置RPC服务监听地址")
+	enableHardwarePubSub := flag.Bool("enable-hardware-pubsub", true, "是否启用硬件指标VSOA发布订阅客户端")
+	hardwarePubSubAddr := flag.String("hardware-pubsub-addr", pubsub.DefaultAddress, "硬件指标VSOA发布订阅服务地址")
+	hardwarePubSubURL := flag.String("hardware-pubsub-url", pubsub.DefaultURL, "硬件指标VSOA发布订阅URL")
+	hardwarePubSubPassword := flag.String("hardware-pubsub-password", "", "硬件指标VSOA发布订阅服务密码")
 	flag.Parse()
 
 	fmt.Printf("========== 健康监控系统启动 ==========\n")
@@ -66,6 +72,23 @@ func main() {
 	fmt.Println()
 
 	// 2. 监听系统信号，优雅退出
+	dispatcher := business.NewDispatcher(sm)
+	var hardwarePubSub *pubsub.Client
+	if *enableHardwarePubSub {
+		hardwarePubSub = pubsub.NewClient(pubsub.Option{
+			Address:  *hardwarePubSubAddr,
+			URL:      *hardwarePubSubURL,
+			Password: *hardwarePubSubPassword,
+		}, dispatcher)
+		if err := hardwarePubSub.Start(ctx); err != nil {
+			fmt.Printf("❌ 硬件指标PubSub客户端启动失败: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		fmt.Println("硬件指标PubSub客户端: 未启用")
+	}
+	fmt.Println()
+
 	fmt.Println("✅ 系统运行中，按 Ctrl+C 停止")
 	fmt.Println()
 	sigChan := make(chan os.Signal, 1)
@@ -77,6 +100,11 @@ func main() {
 	if hubRPC != nil {
 		if err := hubRPC.Close(); err != nil {
 			fmt.Printf("⚠️  配置RPC服务关闭失败: %v\n", err)
+		}
+	}
+	if hardwarePubSub != nil {
+		if err := hardwarePubSub.Close(); err != nil {
+			fmt.Printf("⚠️  硬件指标PubSub客户端关闭失败: %v\n", err)
 		}
 	}
 	time.Sleep(time.Second)

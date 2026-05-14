@@ -139,6 +139,7 @@ type ThresholdConfig struct {
 	} `json:"AttitudeOrbitControl"`
 
 	MomentumWheel struct {
+		NoTelemetryCount          IntThreshold    `json:"MomentumWheel_No_telemetry_count"`
 		MomentumWheelSerialPort   IntThreshold    `json:"MomentumWheelSerialPort"`
 		SendCmdK53029             IntThreshold    `json:"SendCmd_K53029"`
 		WheelSpeedX               MetricThreshold `json:"WheelSpeedX"`

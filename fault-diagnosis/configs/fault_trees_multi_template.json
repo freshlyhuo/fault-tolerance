@@ -1044,10 +1044,17 @@
         {
           "event_id": "T18-MID-001",
           "recovery_plan_id": "RP-023",
-          "name": "Telemetry acquisition of communication device faults",
+          "name": "Telemetry acquisition of GNSS faults",
           "description": "GNSSA遥测异常",
           "gate_type": "AND",
-          "children": ["T18-EVT-001","T18-EVT-002","T18-EVT-003","T18-EVT-004","T18-EVT-005"]
+          "children": ["T18-EVT-001", "T18-MID-002"]
+        },
+        {
+          "event_id": "T18-MID-002",
+          "name": "GNSS fault count increased",
+          "description": "GNSS故障计数增加",
+          "gate_type": "OR",
+          "children": ["T18-EVT-002","T18-EVT-003","T18-EVT-004","T18-EVT-005"]
         }
       ],
       "basic_events": [
@@ -1527,9 +1534,9 @@
       "basic_events": [
         {
           "event_id": "T27-EVT-001",
-          "name": "MEMS_No_telemetry_count increase",
-          "description": "MEMS串口无遥测",
-          "alert_id": "YW-AttitudeOrbitControl-MEMS_No_telemetry_count"
+          "name": "MomentumWheel_No_telemetry_count increase",
+          "description": "动量轮串口无遥测",
+          "alert_id": "YW-MomentumWheel-MomentumWheel_No_telemetry_count"
         },
         {
           "event_id": "T27-EVT-002",

@@ -149,6 +149,17 @@ func faultCodeForAlertID(alertID string) string {
 		return "YW-O2-CS-5"
 	case "YW-comm-TMEZD01168_TelemetryEncryptStatus":
 		return "YW-O2-CS-6"
+	case "YW-MomentumWheel-MomentumWheel_No_telemetry_count":
+		return "YW-O2-CS-15"
+	case "YW-MomentumWheel-WheelSpeed_X",
+		"YW-MomentumWheel-WheelSpeed_Y",
+		"YW-MomentumWheel-WheelSpeed_Z":
+		return "YW-O2-CS-16"
+	case "YW-AttitudeOrbitControl-TMEZD01013_CheckErrorCount",
+		"YW-AttitudeOrbitControl-TMEZD01014_FrameHeaderErrorCount",
+		"YW-AttitudeOrbitControl-TMEZD01015_FrameLengthErrorCount",
+		"YW-AttitudeOrbitControl-TMEZD01016_ResetCount":
+		return "YW-O2-CS-17"
 	}
 
 	const prefix = "YW-AttitudeOrbitControl-"
@@ -400,11 +411,17 @@ func CheckCommThresholdsWithState(metrics *model.CommMetrics, sm *state.StateMan
 
 // CheckActuatorThresholds 检查姿态控制机构阈值（当前仅触发告警）
 func CheckActuatorThresholds(metrics *model.ActuatorMetrics) []*model.AlertEvent {
+	return CheckActuatorThresholdsWithState(metrics, nil)
+}
+
+// CheckActuatorThresholdsWithState 检查姿态控制机构阈值与计数增量（支持恢复告警）
+func CheckActuatorThresholdsWithState(metrics *model.ActuatorMetrics, sm *state.StateManager) []*model.AlertEvent {
 	if metrics == nil {
 		return nil
 	}
 	tc := config.GetThresholdConfig()
 	var alerts []*model.AlertEvent
+	now := time.Now().Unix()
 
 	tolerance := valueOrDefault(tc.MomentumWheel.WheelSpeedTolerance, 10)
 	xMin, xMax := wheelRange(tc.MomentumWheel.WheelSpeedX, 100, tolerance)
@@ -427,9 +444,34 @@ func CheckActuatorThresholds(metrics *model.ActuatorMetrics) []*model.AlertEvent
 		}
 	}
 
-	checkWheel(metrics.WheelSpeedX, "X", xMin, xMax)
-	checkWheel(metrics.WheelSpeedY, "Y", yMin, yMax)
-	checkWheel(metrics.WheelSpeedZ, "Z", zMin, zMax)
+	if metrics.SendCmdK53029 == 1 {
+		checkWheel(metrics.WheelSpeedX, "X", xMin, xMax)
+		checkWheel(metrics.WheelSpeedY, "Y", yMin, yMax)
+		checkWheel(metrics.WheelSpeedZ, "Z", zMin, zMax)
+	}
+
+	prev, _ := previousBusinessData(sm, "momentum_wheel", metrics).(*model.ActuatorMetrics)
+	if prev != nil {
+		checkIncrease := func(alertID, source string, current, previous uint32) {
+			isFiring := current > previous
+			alerts = appendAlert(alerts, sm,
+				alertID, source, isFiring,
+				fmt.Sprintf("%s 计数增加: 上次=%d, 当前=%d", source, previous, current),
+				fmt.Sprintf("%s 计数未继续增加: 当前=%d", source, current),
+				float64(current), map[string]interface{}{"previous": previous, "current": current}, now)
+		}
+
+		checkIncrease("YW-MomentumWheel-MomentumWheel_No_telemetry_count", "MomentumWheel_No_telemetry_count",
+			metrics.NoTelemetryCount, prev.NoTelemetryCount)
+		checkIncrease("YW-AttitudeOrbitControl-TMEZD01013_CheckErrorCount", "TMEZD01013_CheckErrorCount",
+			metrics.CheckErrorCount, prev.CheckErrorCount)
+		checkIncrease("YW-AttitudeOrbitControl-TMEZD01014_FrameHeaderErrorCount", "TMEZD01014_FrameHeaderErrorCount",
+			metrics.FrameHeaderErrorCount, prev.FrameHeaderErrorCount)
+		checkIncrease("YW-AttitudeOrbitControl-TMEZD01015_FrameLengthErrorCount", "TMEZD01015_FrameLengthErrorCount",
+			metrics.FrameLengthErrorCount, prev.FrameLengthErrorCount)
+		checkIncrease("YW-AttitudeOrbitControl-TMEZD01016_ResetCount", "TMEZD01016_ResetCount",
+			metrics.ResetCount, prev.ResetCount)
+	}
 
 	return alerts
 }

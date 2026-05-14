@@ -58,7 +58,11 @@ func (g *Generator) ProcessBusinessMetrics(ctx context.Context, bm *model.Busine
 		}
 
 	case *model.ActuatorMetrics:
-		alerts = CheckActuatorThresholds(data)
+		if sm != nil {
+			alerts = CheckActuatorThresholdsWithState(data, sm)
+		} else {
+			alerts = CheckActuatorThresholds(data)
+		}
 
 	case *model.AttitudeOrbitControlMetrics:
 		if sm != nil {
