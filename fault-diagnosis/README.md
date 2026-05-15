@@ -244,17 +244,21 @@ go run ./cmd/diagnosis -config ./configs/fault_trees_multi_template.json
 ### 配置参数
 
 - `-config`: 故障树配置文件路径
-- `-etcd`: etcd集群地址（用于接收告警）
-- `-prefix`: 监听的 etcd 键前缀
+- `-enable-config-rpc`: 是否启用 VSOA 配置 RPC 服务（默认启用）
+- `-config-rpc-addr`: VSOA 配置 RPC 服务监听地址
 - `-log-level`: 日志级别（debug/info/warn/error）
 - `-output`: 诊断结果输出文件（为空则仅日志输出）
 
+### 运行时配置更新
+
+故障诊断模块启动配置 RPC 服务后，`/fault_tolerance/fault_diagnosis/update_config_rpc` 更新成功会立即重新加载 `-config` 指定的故障树配置，并原子替换当前 `MultiDiagnosisEngine`。如果新配置无法加载或重建引擎失败，RPC 返回失败状态，诊断继续使用上一版引擎。
+
 ## 与健康监测模块集成
 
-故障诊断模块通过 etcd 接收来自健康监测模块的告警事件：
+故障诊断模块当前仅保留内存 ChannelReceiver，用于接收来自健康监测模块的告警事件：
 
-1. 健康监测模块将告警写入 etcd 的 `/alerts/` 路径
-2. 故障诊断模块监听该路径，接收告警事件
+1. 健康监测模块通过 `ChannelReceiver.SendAlert` 投递告警事件
+2. 故障诊断模块从内存队列消费告警事件
 3. 将告警 ID 映射为故障树中的基本事件
 4. 触发诊断推理流程
 
@@ -262,12 +266,10 @@ go run ./cmd/diagnosis -config ./configs/fault_trees_multi_template.json
 
 - **新增故障树**: 在 `configs/` 目录添加新的 JSON 配置文件
 - **自定义逻辑门**: 在 `engine/evaluator.go` 中扩展门类型
-- **多数据源**: 在 `receiver/` 中实现新的接收器
 
 ## 技术栈
 
 - Go 1.24.5
-- etcd v3（事件通信）
 - zap（日志）
 
 ## 参考文档

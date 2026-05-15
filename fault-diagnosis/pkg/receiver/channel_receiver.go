@@ -111,7 +111,7 @@ func (r *ChannelReceiver) handleAlert(alert *models.AlertEvent) {
 }
 
 // SendAlert 发送告警到队列（供健康监测模块调用）
-// 这个方法让健康监测模块可以直接调用，无需依赖etcd
+// 这个方法让健康监测模块可以直接调用，无需依赖外部消息组件
 func (r *ChannelReceiver) SendAlert(alert *models.AlertEvent) error {
 	select {
 	case r.alertChan <- alert:

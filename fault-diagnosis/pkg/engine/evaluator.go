@@ -112,21 +112,6 @@ func (e *Evaluator) evaluateNOT(node *models.EventNode) models.EventState {
 	return models.StateFalse
 }
 
-// EvaluateTree 求值整个故障树
-// 返回所有被触发（状态为真）的顶层事件
-func (e *Evaluator) EvaluateTree(topEvents []*models.EventNode) []*models.EventNode {
-	triggeredTopEvents := make([]*models.EventNode, 0)
-
-	for _, topEvent := range topEvents {
-		state := e.EvaluateNode(topEvent)
-		if state == models.StateTrue {
-			triggeredTopEvents = append(triggeredTopEvents, topEvent)
-		}
-	}
-
-	return triggeredTopEvents
-}
-
 // CollectTriggerPath 收集触发路径（从顶层事件到基本事件）
 func (e *Evaluator) CollectTriggerPath(node *models.EventNode, path *[]string) {
 	if node.GetState() != models.StateTrue {

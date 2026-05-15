@@ -49,6 +49,7 @@ func (defaultFaultTreeConfigUpdater) GetFaultTreeConfigStatus() config.FaultTree
 type RuntimeConfigService struct {
 	moduleName string
 	updater    faultTreeConfigUpdater
+	onUpdate   func() error
 }
 
 func NewRuntimeConfigService() *RuntimeConfigService {
@@ -56,12 +57,21 @@ func NewRuntimeConfigService() *RuntimeConfigService {
 }
 
 func NewRuntimeConfigServiceWithUpdater(updater faultTreeConfigUpdater) *RuntimeConfigService {
+	return NewRuntimeConfigServiceWithUpdaterAndReload(updater, nil)
+}
+
+func NewRuntimeConfigServiceWithReload(onUpdate func() error) *RuntimeConfigService {
+	return NewRuntimeConfigServiceWithUpdaterAndReload(defaultFaultTreeConfigUpdater{}, onUpdate)
+}
+
+func NewRuntimeConfigServiceWithUpdaterAndReload(updater faultTreeConfigUpdater, onUpdate func() error) *RuntimeConfigService {
 	if updater == nil {
 		updater = defaultFaultTreeConfigUpdater{}
 	}
 	return &RuntimeConfigService{
 		moduleName: DefaultModuleName,
 		updater:    updater,
+		onUpdate:   onUpdate,
 	}
 }
 
@@ -86,6 +96,12 @@ func (s *RuntimeConfigService) HandleUpdateConfigPayload(payload []byte) UpdateC
 	err := s.updater.UpdateFaultTreeConfig(req.Version, req.Checksum, req.ConfigData)
 	switch {
 	case err == nil:
+		if s.onUpdate != nil {
+			if err := s.onUpdate(); err != nil {
+				resp.StatusCode = StatusCodeParseError
+				return resp
+			}
+		}
 		latest := s.updater.GetFaultTreeConfigStatus()
 		resp.StatusCode = StatusCodeSuccess
 		resp.ActiveVersion = latest.CurrentVersion

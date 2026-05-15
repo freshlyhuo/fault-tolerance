@@ -99,7 +99,7 @@ func previousBusinessData(sm *state.StateManager, id string, current interface{}
 		return nil
 	}
 
-	history := sm.QueryHistory(state.MetricTypeBusiness, id, HistoryLookupWindow)
+	history := sm.QueryHistory(id, HistoryLookupWindow)
 	for i := len(history) - 1; i >= 0; i-- {
 		bm, ok := history[i].Data.(*model.BusinessMetrics)
 		if !ok || bm == nil {

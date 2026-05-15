@@ -10,19 +10,19 @@ import (
 
 // DiagnosisEngine 故障诊断引擎
 type DiagnosisEngine struct {
-	faultTree    *models.FaultTree       // 故障树配置
-	topEvents    []*models.EventNode     // 顶层事件节点
-	eventNodes   map[string]*models.EventNode // 事件ID -> 节点
-	alertToEvent map[string]string       // 告警ID -> 基本事件ID
-	stateManager *StateManager           // 状态管理器
-	evaluator    *Evaluator              // 求值器
-	logger       *zap.Logger             // 日志
-	mu           sync.RWMutex            // 读写锁
-	callback     DiagnosisCallback       // 诊断回调函数
-	topEventSource      map[string]string // 顶层事件ID -> 触发源
-	topEventServiceID   map[string]string // 顶层事件ID -> serviceId
-	topEventServiceName map[string]string // 顶层事件ID -> serviceName
-	topEventMu          sync.RWMutex      // 顶层事件上下文锁
+	faultTree           *models.FaultTree            // 故障树配置
+	topEvents           []*models.EventNode          // 顶层事件节点
+	eventNodes          map[string]*models.EventNode // 事件ID -> 节点
+	alertToEvent        map[string]string            // 告警ID -> 基本事件ID
+	stateManager        *StateManager                // 状态管理器
+	evaluator           *Evaluator                   // 求值器
+	logger              *zap.Logger                  // 日志
+	mu                  sync.RWMutex                 // 读写锁
+	callback            DiagnosisCallback            // 诊断回调函数
+	topEventSource      map[string]string            // 顶层事件ID -> 触发源
+	topEventServiceID   map[string]string            // 顶层事件ID -> serviceId
+	topEventServiceName map[string]string            // 顶层事件ID -> serviceName
+	topEventMu          sync.RWMutex                 // 顶层事件上下文锁
 }
 
 // DiagnosisCallback 诊断回调函数类型
@@ -39,11 +39,11 @@ func NewDiagnosisEngine(faultTree *models.FaultTree, logger *zap.Logger) (*Diagn
 	}
 
 	engine := &DiagnosisEngine{
-		faultTree:    faultTree,
-		eventNodes:   make(map[string]*models.EventNode),
-		alertToEvent: make(map[string]string),
-		stateManager: NewStateManager(),
-		logger:       logger,
+		faultTree:           faultTree,
+		eventNodes:          make(map[string]*models.EventNode),
+		alertToEvent:        make(map[string]string),
+		stateManager:        NewStateManager(),
+		logger:              logger,
 		topEventSource:      make(map[string]string),
 		topEventServiceID:   make(map[string]string),
 		topEventServiceName: make(map[string]string),
@@ -81,7 +81,7 @@ func (e *DiagnosisEngine) buildTree() error {
 		}
 		e.eventNodes[basicEvent.EventID] = node
 		e.alertToEvent[basicEvent.AlertID] = basicEvent.EventID
-		
+
 		// 初始化状态为假
 		e.stateManager.SetState(basicEvent.EventID, models.StateFalse)
 	}
@@ -202,12 +202,12 @@ func (e *DiagnosisEngine) ProcessAlert(alert *models.AlertEvent) {
 
 	// 判断是恢复告警还是触发告警
 	isResolved := alert.IsResolved()
-	if !isResolved{
+	if !isResolved {
 		e.logger.Info("接收到告警事件",
-		zap.String("alert_id", alert.AlertID),
-		zap.String("type", alert.Type),
-		zap.String("status", string(alert.Status)),
-		zap.Bool("is_resolved", isResolved))
+			zap.String("alert_id", alert.AlertID),
+			zap.String("type", alert.Type),
+			zap.String("status", string(alert.Status)),
+			zap.Bool("is_resolved", isResolved))
 	}
 
 	// 将告警映射到基本事件
@@ -304,29 +304,6 @@ func (e *DiagnosisEngine) diagnose(source, serviceID, serviceName string) {
 	}
 }
 
-func (e *DiagnosisEngine) setTopEventSource(eventID, source string) {
-	e.topEventMu.Lock()
-	defer e.topEventMu.Unlock()
-	if source != "" {
-		e.topEventSource[eventID] = source
-	}
-}
-
-func (e *DiagnosisEngine) getTopEventSource(eventID, fallback string) string {
-	e.topEventMu.RLock()
-	defer e.topEventMu.RUnlock()
-	if src, ok := e.topEventSource[eventID]; ok && src != "" {
-		return src
-	}
-	return fallback
-}
-
-func (e *DiagnosisEngine) clearTopEventSource(eventID string) {
-	e.topEventMu.Lock()
-	defer e.topEventMu.Unlock()
-	delete(e.topEventSource, eventID)
-}
-
 func (e *DiagnosisEngine) setTopEventContext(eventID, source, serviceID, serviceName string) {
 	e.topEventMu.Lock()
 	defer e.topEventMu.Unlock()
@@ -391,27 +368,11 @@ func (e *DiagnosisEngine) generateDiagnosisResult(topEvent *models.EventNode, so
 	return diagnosis
 }
 
-// ResetEvent 重置事件状态
-func (e *DiagnosisEngine) ResetEvent(eventID string) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	
-	e.stateManager.ResetState(eventID)
-	e.logger.Info("事件状态已重置",
-		zap.String("event_id", eventID),
-	)
-}
-
 // ResetAll 重置所有事件状态
 func (e *DiagnosisEngine) ResetAll() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	
+
 	e.stateManager.ResetAll()
 	e.logger.Info("所有事件状态已重置")
-}
-
-// GetStateManager 获取状态管理器（用于测试）
-func (e *DiagnosisEngine) GetStateManager() *StateManager {
-	return e.stateManager
 }

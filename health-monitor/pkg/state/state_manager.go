@@ -1,4 +1,6 @@
-/* 状态管理器 - 核心数据中枢
+/*
+	状态管理器 - 核心数据中枢
+
 功能:
 1. 实时状态维护 - UpdateMetric()
 2. 统一查询接口 - GetLatestState()
@@ -17,7 +19,7 @@ import (
 const (
 	// 历史数据保留时长
 	HistoryRetention = 10 * time.Minute
-	
+
 	// 环形缓冲区大小（每个指标保留最近N条记录）
 	RingBufferSize = 600 // 10分钟 * 60秒
 )
@@ -27,15 +29,15 @@ type StateManager struct {
 	// 实时状态存储（最新值）
 	latestStates map[string]Metric
 	statesMutex  sync.RWMutex
-	
-	// 历史数据环形缓冲区 (id -> ring buffer)
+
+	// 历史数据环形缓冲区 (business-id -> ring buffer)
 	historyBuffers map[string]*RingBuffer
 	historyMutex   sync.RWMutex
-	
+
 	// 告警状态跟踪 (alertID -> 是否激活)
 	alertStates map[string]bool
 	alertMutex  sync.RWMutex
-	
+
 	// 停止信号
 	stopChan chan struct{}
 }
@@ -67,10 +69,10 @@ func NewRingBuffer(size int) *RingBuffer {
 func (rb *RingBuffer) Append(entry HistoryEntry) {
 	rb.mutex.Lock()
 	defer rb.mutex.Unlock()
-	
+
 	rb.data[rb.tail] = entry
 	rb.tail = (rb.tail + 1) % rb.size
-	
+
 	// 如果满了，移动head
 	if rb.tail == rb.head {
 		rb.head = (rb.head + 1) % rb.size
@@ -81,10 +83,10 @@ func (rb *RingBuffer) Append(entry HistoryEntry) {
 func (rb *RingBuffer) Query(since time.Duration) []HistoryEntry {
 	rb.mutex.RLock()
 	defer rb.mutex.RUnlock()
-	
+
 	cutoff := time.Now().Unix() - int64(since.Seconds())
 	var result []HistoryEntry
-	
+
 	idx := rb.head
 	for idx != rb.tail {
 		entry := rb.data[idx]
@@ -93,7 +95,7 @@ func (rb *RingBuffer) Query(since time.Duration) []HistoryEntry {
 		}
 		idx = (idx + 1) % rb.size
 	}
-	
+
 	return result
 }
 
@@ -108,7 +110,7 @@ func NewStateManager(_ ...string) (*StateManager, error) {
 	}
 
 	fmt.Println("状态管理器运行在纯内存模式（缓存实现）")
-	
+
 	return sm, nil
 }
 
@@ -117,70 +119,60 @@ func (sm *StateManager) UpdateMetric(metric Metric) error {
 	if metric == nil {
 		return fmt.Errorf("metric不能为nil")
 	}
-	
+
 	// 时间戳对齐
 	alignedMetric := sm.AlignTimestamp(metric)
-	
+
 	id := alignedMetric.GetID()
-	metricType := alignedMetric.GetType()
-	key := fmt.Sprintf("%s:%s", metricType, id)
-	
+
 	// 更新实时状态
 	sm.statesMutex.Lock()
-	sm.latestStates[key] = alignedMetric
+	sm.latestStates[id] = alignedMetric
 	sm.statesMutex.Unlock()
-	
+
 	// 追加到历史缓冲区
 	sm.AppendHistory(alignedMetric)
-	
+
 	return nil
 }
 
 // GetLatestState 获取最新状态
-func (sm *StateManager) GetLatestState(metricType MetricType, id string) (Metric, bool) {
-	key := fmt.Sprintf("%s:%s", metricType, id)
-	
+func (sm *StateManager) GetLatestState(id string) (Metric, bool) {
 	sm.statesMutex.RLock()
 	defer sm.statesMutex.RUnlock()
-	
-	metric, exists := sm.latestStates[key]
+
+	metric, exists := sm.latestStates[id]
 	return metric, exists
 }
 
-// GetAllLatestStates 获取指定类型的所有最新状态
-func (sm *StateManager) GetAllLatestStates(metricType MetricType) []Metric {
+// GetAllLatestStates 获取所有最新业务状态。
+func (sm *StateManager) GetAllLatestStates() []Metric {
 	sm.statesMutex.RLock()
 	defer sm.statesMutex.RUnlock()
-	
+
 	var results []Metric
-	prefix := string(metricType) + ":"
-	
-	for key, metric := range sm.latestStates {
-		if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
-			results = append(results, metric)
-		}
+	for _, metric := range sm.latestStates {
+		results = append(results, metric)
 	}
-	
+
 	return results
 }
 
 // AppendHistory 追加历史记录到环形缓冲区
 func (sm *StateManager) AppendHistory(metric Metric) {
 	id := metric.GetID()
-	metricType := metric.GetType()
-	key := fmt.Sprintf("%s:%s", metricType, id)
-	
+
 	sm.historyMutex.Lock()
-	
+
 	// 如果该指标还没有环形缓冲区，创建一个
-	buffer, exists := sm.historyBuffers[key]
+	buffer, exists := sm.historyBuffers[id]
 	if !exists {
 		buffer = NewRingBuffer(RingBufferSize)
-		sm.historyBuffers[key] = buffer
+		sm.historyBuffers[id] = buffer
 	}
-	
+
 	sm.historyMutex.Unlock()
-	
+
 	// 追加数据
 	buffer.Append(HistoryEntry{
 		Timestamp: metric.GetTimestamp(),
@@ -189,17 +181,15 @@ func (sm *StateManager) AppendHistory(metric Metric) {
 }
 
 // QueryHistory 查询历史数据
-func (sm *StateManager) QueryHistory(metricType MetricType, id string, duration time.Duration) []HistoryEntry {
-	key := fmt.Sprintf("%s:%s", metricType, id)
-	
+func (sm *StateManager) QueryHistory(id string, duration time.Duration) []HistoryEntry {
 	sm.historyMutex.RLock()
-	buffer, exists := sm.historyBuffers[key]
+	buffer, exists := sm.historyBuffers[id]
 	sm.historyMutex.RUnlock()
-	
+
 	if !exists {
 		return []HistoryEntry{}
 	}
-	
+
 	return buffer.Query(duration)
 }
 
@@ -208,13 +198,13 @@ func (sm *StateManager) AlignTimestamp(metric Metric) Metric {
 	// 简单实现：如果时间戳过旧或过新，调整为当前时间
 	now := time.Now().Unix()
 	ts := metric.GetTimestamp()
-	
+
 	// 如果时间戳为0或相差超过1小时，使用当前时间
 	if ts == 0 || ts < now-3600 || ts > now+3600 {
 		// 注意：这里需要根据具体的Metric类型来更新时间戳
 		// 为了简化，我们假设时间戳已经在创建时正确设置
 	}
-	
+
 	return metric
 }
 
@@ -254,21 +244,21 @@ func (sm *StateManager) GetStats() map[string]interface{} {
 	sm.statesMutex.RLock()
 	stateCount := len(sm.latestStates)
 	sm.statesMutex.RUnlock()
-	
+
 	sm.historyMutex.RLock()
 	historyCount := len(sm.historyBuffers)
 	sm.historyMutex.RUnlock()
-	
+
 	sm.alertMutex.RLock()
 	alertCount := len(sm.alertStates)
 	sm.alertMutex.RUnlock()
-	
+
 	return map[string]interface{}{
-		"latest_states":   stateCount,
-		"history_buffers": historyCount,
-		"active_alerts":   alertCount,
+		"latest_states":    stateCount,
+		"history_buffers":  historyCount,
+		"active_alerts":    alertCount,
 		"ring_buffer_size": RingBufferSize,
-		"retention":       HistoryRetention.String(),
+		"retention":        HistoryRetention.String(),
 	}
 }
 
@@ -311,15 +301,15 @@ func (sm *StateManager) alertKey(alertID, source string) string {
 func (sm *StateManager) checkAndUpdateAlertStateByKey(key string, isFiring bool) (bool, bool) {
 	sm.alertMutex.Lock()
 	defer sm.alertMutex.Unlock()
-	
+
 	wasActive, exists := sm.alertStates[key]
-	
+
 	// 状态发生变化
 	if !exists || wasActive != isFiring {
 		sm.alertStates[key] = isFiring
 		return true, isFiring // 需要发送告警
 	}
-	
+
 	// 状态未变化
 	return false, isFiring
 }
@@ -328,7 +318,7 @@ func (sm *StateManager) checkAndUpdateAlertStateByKey(key string, isFiring bool)
 func (sm *StateManager) GetActiveAlertCount() int {
 	sm.alertMutex.RLock()
 	defer sm.alertMutex.RUnlock()
-	
+
 	count := 0
 	for _, active := range sm.alertStates {
 		if active {
@@ -342,7 +332,7 @@ func (sm *StateManager) GetActiveAlertCount() int {
 func (sm *StateManager) GetActiveAlerts() []string {
 	sm.alertMutex.RLock()
 	defer sm.alertMutex.RUnlock()
-	
+
 	var alerts []string
 	for alertID, active := range sm.alertStates {
 		if active {

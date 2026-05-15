@@ -77,6 +77,19 @@ func ensureFaultTreeStatusInitialized() {
 	faultTreeStatusOnce.Do(initializeFaultTreeConfigStatus)
 }
 
+// SetFaultTreeConfigPath 指定运行时配置更新要写入的故障树配置文件。
+func SetFaultTreeConfigPath(path string) {
+	ensureFaultTreeStatusInitialized()
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return
+	}
+
+	faultTreeStatusMu.Lock()
+	faultTreeConfigPath = path
+	faultTreeStatusMu.Unlock()
+}
+
 func resolveFaultTreeWritePath() string {
 	faultTreeStatusMu.RLock()
 	if faultTreeConfigPath != "" {

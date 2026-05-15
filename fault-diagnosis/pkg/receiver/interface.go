@@ -3,14 +3,14 @@ package receiver
 import "fault-diagnosis/pkg/models"
 
 // Receiver 告警接收器接口
-// 支持多种实现：内存队列、etcd、Kafka等
+// 当前实现为内存队列接收器
 type Receiver interface {
 	// Start 启动接收器
 	Start() error
-	
+
 	// Stop 停止接收器
 	Stop()
-	
+
 	// SetHandler 设置告警处理函数
 	SetHandler(handler AlertHandler)
 }

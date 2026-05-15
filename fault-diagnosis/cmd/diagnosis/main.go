@@ -12,7 +12,7 @@ import (
 	"syscall"
 
 	"fault-diagnosis/pkg/config"
-	"fault-diagnosis/pkg/engine"
+	"fault-diagnosis/pkg/configrpc"
 	"fault-diagnosis/pkg/models"
 	"fault-diagnosis/pkg/receiver"
 	"fault-diagnosis/pkg/utils"
@@ -20,11 +20,11 @@ import (
 )
 
 var (
-	configPath     = flag.String("config", "./configs/fault_trees_multi_template.json", "故障树配置文件路径")
-	etcdEndpoints  = flag.String("etcd", "localhost:2379", "etcd集群地址（逗号分隔）")
-	watchPrefix    = flag.String("prefix", "/alerts/", "监听的etcd键前缀")
-	logLevel       = flag.String("log-level", "info", "日志级别 (debug/info/warn/error)")
-	outputPath     = flag.String("output", "", "诊断结果输出路径（为空则输出到stdout）")
+	configPath      = flag.String("config", "./configs/fault_trees_multi_template.json", "故障树配置文件路径")
+	enableConfigRPC = flag.Bool("enable-config-rpc", true, "是否启用VSOA配置RPC服务")
+	configRPCAddr   = flag.String("config-rpc-addr", "127.0.0.1:3001", "VSOA配置RPC服务监听地址")
+	logLevel        = flag.String("log-level", "info", "日志级别 (debug/info/warn/error)")
+	outputPath      = flag.String("output", "", "诊断结果输出路径（为空则输出到stdout）")
 )
 
 func main() {
@@ -40,30 +40,35 @@ func main() {
 
 	logger.Info("故障诊断模块启动",
 		zap.String("config", *configPath),
+		zap.Bool("enable_config_rpc", *enableConfigRPC),
 		zap.String("log_level", *logLevel),
 	)
 
-	// 加载故障树配置
-	loader := config.NewLoader(*configPath)
-	faultTrees, err := loader.LoadFaultTrees()
-	if err != nil {
-		logger.Fatal("加载故障树配置失败", zap.Error(err))
-	}
-
-	logger.Info("故障树配置加载成功",
-		zap.Int("fault_trees", len(faultTrees)),
-	)
-
-	// 创建诊断引擎
-	diagnosisEngine, err := engine.NewMultiDiagnosisEngine(faultTrees, logger)
-	if err != nil {
-		logger.Fatal("创建诊断引擎失败", zap.Error(err))
-	}
-
-	// 设置诊断回调函数
-	diagnosisEngine.SetCallback(func(diagnosis *models.DiagnosisResult) {
+	config.SetFaultTreeConfigPath(*configPath)
+	diagnosisEngine, err := newReloadableDiagnosisEngine(*configPath, logger, func(diagnosis *models.DiagnosisResult) {
 		handleDiagnosisResult(diagnosis, logger)
 	})
+	if err != nil {
+		logger.Fatal("初始化诊断引擎失败", zap.Error(err))
+	}
+
+	var configRPCServer *configrpc.VSOAServer
+	if *enableConfigRPC {
+		service := configrpc.NewRuntimeConfigServiceWithReload(func() error {
+			return diagnosisEngine.Reload()
+		})
+		configRPCServer = configrpc.NewVSOAServer(*configRPCAddr, service)
+		if err := configRPCServer.Start(); err != nil {
+			logger.Fatal("启动配置RPC服务失败", zap.Error(err))
+		}
+		defer configRPCServer.Close()
+		go func() {
+			if err := <-configRPCServer.Errors(); err != nil {
+				logger.Error("配置RPC服务异常退出", zap.Error(err))
+			}
+		}()
+		logger.Info("配置RPC服务已启动", zap.String("addr", *configRPCAddr))
+	}
 
 	// 使用内存通道接收器（当前receiver包可用实现）
 	alertReceiver := receiver.NewChannelReceiver(500, logger)
@@ -109,7 +114,7 @@ func handleDiagnosisResult(diagnosis *models.DiagnosisResult, logger *zap.Logger
 	}
 
 	// TODO: 将诊断结果发送到故障修复模块
-	// 可以通过etcd、消息队列或HTTP API发送
+	// 可以通过消息队列或HTTP API发送
 }
 
 // writeToFile 将诊断结果写入文件

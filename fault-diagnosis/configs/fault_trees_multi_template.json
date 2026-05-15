@@ -298,7 +298,7 @@
           "children": ["T5-EVT-002", "T5-EVT-003"]
         },
         {
-          "event_id": "T5-MID-008",
+          "event_id": "T5-MID-003",
           "recovery_plan_id": "RP-008",
           "name": "Platform heater switch state abnormal",
           "description": "OC指令异常",
@@ -1561,134 +1561,6 @@
           "name": "TMEZD01016_ResetCount abnormal",
           "description": "TMEZD01016cjb-星务-串口1动量轮复位计数增加",
           "alert_id": "YW-AttitudeOrbitControl-TMEZD01016_ResetCount"
-        }
-      ]
-    },
-    {
-      "fault_tree_id": "TREE-028",
-      "description": "容器资源耗尽",
-      "top_events": [
-        {
-          "event_id": "T28-TOP-001",
-          "name": "MS-CT-1",
-          "description": "容器资源耗尽",
-          "fault_code": "MS-CT-1",
-          "gate_type": "BASIC",
-          "children": ["T28-MID-001"]
-        }
-      ],
-      "intermediate_events": [
-        {
-          "event_id": "T28-MID-001",
-          "name": "Container resources exhausted",
-          "description": "容器资源耗尽",
-          "gate_type": "OR",
-          "children": ["T28-EVT-001","T28-EVT-002","T28-EVT-003"],
-          "container_id": null
-        }
-      ],
-      "basic_events": [
-        {
-          "event_id": "T28-EVT-001",
-          "name": "Container CPU resources exhausted",
-          "description": "容器CPU资源耗尽",
-          "alert_id": "MS-Container-CPU_Resource_Exhausted",
-          "container_id": null
-        },
-        {
-          "event_id": "T28-EVT-002",
-          "name": "Container memory resources exhausted",
-          "description": "容器内存资源耗尽",
-          "alert_id": "MS-Container-Memory_Resource_Exhausted",
-          "container_id": null
-        },
-        {
-          "event_id": "T28-EVT-003",
-          "name": "Container disk resources exhausted",
-          "description": "容器磁盘资源耗尽",
-          "alert_id": "MS-Container-Disk_Resource_Exhausted",
-          "container_id": null
-
-        }
-      ]
-    },
-    {
-      "fault_tree_id": "TREE-029",
-      "description": "节点资源耗尽",
-      "top_events": [
-        {
-          "event_id": "T29-TOP-001",
-          "name": "MS-ND-1",
-          "description": "节点资源耗尽",
-          "fault_code": "MS-ND-1",
-          "gate_type": "BASIC",
-          "children": ["T29-MID-001"],
-          "node_id": null
-        }
-      ],
-      "intermediate_events": [
-        {
-          "event_id": "T29-MID-001",
-          "name": "Node resources exhausted",
-          "description": "节点资源耗尽",
-          "gate_type": "OR",
-          "children": ["T29-EVT-001","T29-EVT-002","T29-EVT-003"]
-        }
-      ],
-      "basic_events": [
-        {
-          "event_id": "T29-EVT-001",
-          "name": "Node CPU resources exhausted",
-          "description": "节点CPU资源耗尽",
-          "alert_id": "MS-Node-CPU_Resource_Exhausted",
-          "node_id": null
-        },
-        {
-          "event_id": "T29-EVT-002",
-          "name": "Node memory resources exhausted",
-          "description": "节点内存资源耗尽",
-          "alert_id": "MS-Node-Memory_Resource_Exhausted",
-          "node_id": null
-        },
-        {
-          "event_id": "T29-EVT-003",
-          "name": "Node disk resources exhausted",
-          "description": "节点磁盘资源耗尽",
-          "alert_id": "MS-Node-Disk_Resource_Exhausted",
-          "node_id": null
-        }
-      ]
-    },
-    {
-      "fault_tree_id": "TREE-030",
-      "description": "服务不健康",
-      "top_events": [
-        {
-          "event_id": "T30-TOP-001",
-          "name": "MS-SV-1",
-          "description": "服务不健康",
-          "fault_code": "MS-SV-1",
-          "gate_type": "BASIC",
-          "children": ["T30-MID-001"]
-        }
-      ],
-      "intermediate_events": [
-        {
-          "event_id": "T30-MID-001",
-          "name": "Service unhealthy",
-          "description": "服务不健康",
-          "gate_type": "BASIC",
-          "children": ["T30-EVT-001"],
-          "service_id": null
-        }
-      ],
-      "basic_events": [
-        {
-          "event_id": "T30-EVT-001",
-          "name": "Service unhealthy",
-          "description": "服务健康实例数为0",
-          "alert_id": "MS-Service-Unhealthy",
-          "service_id": null
         }
       ]
     }
