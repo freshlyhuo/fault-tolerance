@@ -42,10 +42,6 @@ func NewChannelReceiver(bufferSize int, logger *zap.Logger) *ChannelReceiver {
 		bufferSize: bufferSize,
 	}
 
-	logger.Info("Channel告警接收器创建成功",
-		zap.Int("buffer_size", bufferSize),
-	)
-
 	return receiver
 }
 
@@ -60,8 +56,6 @@ func (r *ChannelReceiver) Start() error {
 		return fmt.Errorf("未设置告警处理函数")
 	}
 
-	r.logger.Info("启动Channel告警接收器")
-
 	// 启动消费协程
 	r.wg.Add(1)
 	go r.consume()
@@ -71,27 +65,21 @@ func (r *ChannelReceiver) Start() error {
 
 // Stop 停止接收器
 func (r *ChannelReceiver) Stop() {
-	r.logger.Info("停止Channel告警接收器")
 	r.cancel()
 	close(r.alertChan)
 	r.wg.Wait()
-	r.logger.Info("Channel告警接收器已停止")
 }
 
 // consume 消费告警消息
 func (r *ChannelReceiver) consume() {
 	defer r.wg.Done()
 
-	r.logger.Info("开始消费告警消息")
-
 	for {
 		select {
 		case <-r.ctx.Done():
-			r.logger.Info("接收到停止信号，停止消费")
 			return
 		case alert, ok := <-r.alertChan:
 			if !ok {
-				r.logger.Info("告警通道已关闭")
 				return
 			}
 			r.handleAlert(alert)

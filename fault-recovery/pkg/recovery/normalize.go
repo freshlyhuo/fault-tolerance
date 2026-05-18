@@ -38,6 +38,8 @@ func NormalizeDiagnosisEvent(in DiagnosisResult) (NormalizedEvent, error) {
 
 	return NormalizedEvent{
 		TraceID:       traceID,
+		FaultTreeID:   in.FaultTreeID,
+		TopEventID:    in.TopEventID,
 		FaultCode:     in.FaultCode,
 		TargetID:      targetID,
 		Status:        status,

@@ -171,12 +171,19 @@ func toBusinessData(payload Payload) (interface{}, error) {
 	switch normalizeComponent(payload.Component) {
 	case "power":
 		return &model.PowerMetrics{
-			Timestamp:         payload.Timestamp,
-			BatteryVoltage:    floatValue(payload.Values, "TMEZD01095cjb_BatteryVoltage", "BatteryVoltage"),
-			BusVoltage:        floatValue(payload.Values, "TMEZD01096cjb_BusVoltage", "BusVoltage"),
-			CPUVoltage:        floatValue(payload.Values, "TMEZD01011cjb_CPUVoltage", "CPUVoltage"),
-			ThermalRefVoltage: floatValue(payload.Values, "TMEZD01100cjb_ThermalRefVoltage", "ThermalRefVoltage"),
-			LoadCurrent:       floatValue(payload.Values, "TMEZD01247_LoadCurrent", "LoadCurrent"),
+			Timestamp:                payload.Timestamp,
+			BatteryVoltage:           floatValue(payload.Values, "TMEZD01095cjb_BatteryVoltage", "BatteryVoltage"),
+			BusVoltage:               floatValue(payload.Values, "TMEZD01096cjb_BusVoltage", "BusVoltage"),
+			CPUVoltage:               floatValue(payload.Values, "TMEZD01011cjb_CPUVoltage", "CPUVoltage"),
+			ThermalRefVoltage:        floatValue(payload.Values, "TMEZD01100cjb_ThermalRefVoltage", "ThermalRefVoltage"),
+			LoadCurrent:              floatValue(payload.Values, "TMEZD01247_LoadCurrent", "LoadCurrent"),
+			CommunicationPowerStatus: boolValue(payload.Values, "Communication_power_status", "CommunicationPowerStatus"),
+			GNSSAPowerStatus:         boolValue(payload.Values, "GNSSA_power_status", "GNSSAPowerStatus"),
+			GNSSBPowerStatus:         boolValue(payload.Values, "GNSSB_power_status", "GNSSBPowerStatus"),
+			GyroscopePowerStatus:     boolValue(payload.Values, "Gyroscope_power_status", "GyroscopePowerStatus"),
+			MEMSPowerStatus:          boolValue(payload.Values, "MEMS_power_status", "MEMSPowerStatus"),
+			StarTrackerlPowerStatus:  boolValue(payload.Values, "StarTrackerl_power_status", "StarTracker_power_status", "StarTrackerlPowerStatus"),
+			MomentumWheelPowerStatus: boolValue(payload.Values, "MomentumWheel_power_status", "MomentumWheelPowerStatus"),
 		}, nil
 	case "thermal":
 		var temps [10]float64

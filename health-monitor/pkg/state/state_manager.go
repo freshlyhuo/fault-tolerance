@@ -109,8 +109,6 @@ func NewStateManager(_ ...string) (*StateManager, error) {
 		stopChan:       make(chan struct{}),
 	}
 
-	fmt.Println("状态管理器运行在纯内存模式（缓存实现）")
-
 	return sm, nil
 }
 

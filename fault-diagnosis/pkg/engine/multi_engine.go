@@ -56,11 +56,6 @@ func NewMultiDiagnosisEngine(faultTrees []*models.FaultTree, logger *zap.Logger)
 		}
 	}
 
-	m.logger.Info("多故障树诊断引擎初始化成功",
-		zap.Int("fault_trees", len(m.engines)),
-		zap.Int("route_alert_ids", len(m.alertToEngines)),
-	)
-
 	return m, nil
 }
 

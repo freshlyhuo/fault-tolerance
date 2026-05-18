@@ -52,10 +52,29 @@ func main() {
 		logger.Fatal("创建业务层诊断引擎失败", zap.Error(err))
 	}
 
-	// 创建故障修复接收层（内部对象输入，不走 HTTP）
-	recoveryReceive := recovery.NewReceiveService(recovery.ReceiveConfig{
-		QueueSize: 200,
-	})
+	// 创建状态管理器，供健康监测入库和故障修复 CTRL_RECHECK 查询共用。
+	stateManager, err := healthState.NewStateManager()
+	if err != nil {
+		logger.Fatal("创建状态管理器失败", zap.Error(err))
+	}
+	defer stateManager.Close()
+	fmt.Println("  ✓ 状态管理器已创建")
+
+	recoveryRegistry, err := recovery.LoadPlanRegistry("")
+	if err != nil {
+		logger.Fatal("加载故障修复方案失败", zap.Error(err))
+	}
+	recoverySvc := recovery.NewRecoveryServiceWithHealthMonitorState(
+		recoveryRegistry,
+		recovery.NewVSOAContainerClientFromEnv(),
+		stateManager,
+		recovery.NewInMemoryStateManager(),
+		recovery.RecoveryServiceConfig{QueueSize: 200},
+	)
+	recoverySvc.Start(ctx)
+
+	// 创建故障修复接收层（内部对象输入，不走 HTTP），归一化后进入 RecoveryService 执行队列。
+	recoveryReceive := recovery.NewReceiveService(recoverySvc.ReceiveConfig(200))
 	recoveryReceive.Start(ctx)
 
 	// 设置诊断回调
@@ -88,14 +107,6 @@ func main() {
 		logger.Fatal("启动业务层接收器失败", zap.Error(err))
 	}
 	defer businessReceiver.Stop()
-
-	// 创建状态管理器
-	stateManager, err := healthState.NewStateManager()
-	if err != nil {
-		logger.Fatal("创建状态管理器失败", zap.Error(err))
-	}
-	defer stateManager.Close()
-	fmt.Println("  ✓ 状态管理器已创建")
 
 	// 创建告警接收器包装器（集成故障诊断）
 	businessWrapper := diagnosisReceiver.NewReceiverWrapper(businessReceiver)

@@ -38,12 +38,6 @@ func main() {
 	}
 	defer logger.Sync()
 
-	logger.Info("故障诊断模块启动",
-		zap.String("config", *configPath),
-		zap.Bool("enable_config_rpc", *enableConfigRPC),
-		zap.String("log_level", *logLevel),
-	)
-
 	config.SetFaultTreeConfigPath(*configPath)
 	diagnosisEngine, err := newReloadableDiagnosisEngine(*configPath, logger, func(diagnosis *models.DiagnosisResult) {
 		handleDiagnosisResult(diagnosis, logger)
@@ -67,7 +61,6 @@ func main() {
 				logger.Error("配置RPC服务异常退出", zap.Error(err))
 			}
 		}()
-		logger.Info("配置RPC服务已启动", zap.String("addr", *configRPCAddr))
 	}
 
 	// 使用内存通道接收器（当前receiver包可用实现）
@@ -84,14 +77,10 @@ func main() {
 		logger.Fatal("启动告警接收器失败", zap.Error(err))
 	}
 
-	logger.Info("故障诊断模块已启动，等待告警事件...")
-
 	// 等待中断信号
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
-
-	logger.Info("收到退出信号，正在关闭...")
 }
 
 // handleDiagnosisResult 处理诊断结果
@@ -143,5 +132,4 @@ func writeToFile(diagnosis *models.DiagnosisResult, logger *zap.Logger) {
 		return
 	}
 
-	logger.Info("诊断结果已写入文件", zap.String("path", *outputPath))
 }

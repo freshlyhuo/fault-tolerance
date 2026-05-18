@@ -27,6 +27,34 @@ PROTOCOL_HEADER = bytes([0xC0, 0x00, 0x00, 0x09, 0x50, 0x01])
 PROTOCOL_TAIL = bytes([0x00])
 
 RAW_COMMAND_TABLE: dict[str, str] = {
+    "K50166": "8008805554AA54AA",
+    "K50011": "800880550AAA0AAA",
+    "K50175": "8008805555AA55AA",
+    "K50132": "8008805547AA47AA",
+    "K50005": "8708875507AA07AA",
+    "K50003": "8008805506AA06AA",
+    "K50004": "8008805506550655",
+    "K52519": "AF068A5581FF",
+    "K55501": "95088A55810000AA",
+    "K55502": "95088A55820000AA",
+    "K50502": "35068A558383",
+    "K50504": "35068A558585",
+    "K52002": "8008805505550555",
+    "K52130": "8008805546AA46AA",
+    "K50164": "8008805552AA52AA",
+    "K50001": "8008805505AA05AA",
+    "K51001": "8408845500AA00AA",
+    "K51002": "8408845500550055",
+    "K51003": "8408845501AA01AA",
+    "K51004": "8408845501550155",
+    "K51005": "8408845502AA02AA",
+    "K51006": "8408845502550255",
+    "K51007": "8408845503AA03AA",
+    "K51008": "8408845503550355",
+    "K53029": "8408845511041104",
+    "K500038":"8008805517551755",
+    "K500037":"8008805517AA17AA",
+    "K50032":"8008805514551450",
     "restart_ad": "8008805554AA54AA",
     "platform_heating_belt_switch_on": "800880550AAA0AAA",
     "restart_oc": "8008805555AA55AA",
@@ -233,15 +261,9 @@ class Service:
         for name, raw_hex in RAW_COMMAND_TABLE.items():
             normalized_hex = normalize_hex(raw_hex)
             fault_code = generate_fault_code(normalized_hex)
-            if fault_code in self.commands_by_fault_code:
-                existing = self.commands_by_fault_code[fault_code]
-                raise ValueError(
-                    f"fault code collision: {fault_code} maps to both {existing.name} and {name}"
-                )
-
             cmd = Command(name=name, instruction_hex=normalized_hex, fault_code=fault_code)
             self.commands_by_name[name] = cmd
-            self.commands_by_fault_code[fault_code] = cmd
+            self.commands_by_fault_code.setdefault(fault_code, cmd)
 
         self.ordered_commands = sorted(self.commands_by_name.values(), key=lambda c: c.name)
 

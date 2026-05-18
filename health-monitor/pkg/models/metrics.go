@@ -108,6 +108,15 @@ type PowerMetrics struct {
 	// 电流类指标
 	LoadCurrent float64 // TMEZD01247: 负载电流, 正常[0.5, 5]A
 
+	// 设备上电状态类指标，true=on，false=off
+	CommunicationPowerStatus bool // Communication_power_status
+	GNSSAPowerStatus         bool // GNSSA_power_status
+	GNSSBPowerStatus         bool // GNSSB_power_status
+	GyroscopePowerStatus     bool // Gyroscope_power_status
+	MEMSPowerStatus          bool // MEMS_power_status
+	StarTrackerlPowerStatus  bool // StarTrackerl_power_status
+	MomentumWheelPowerStatus bool // MomentumWheel_power_status
+
 	// 故障关联编号
 	FaultCodes []string // 关联的故障编号
 }

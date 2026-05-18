@@ -53,7 +53,7 @@ func (m *reloadableDiagnosisEngine) Reload() error {
 }
 
 func (m *reloadableDiagnosisEngine) reload() (uint32, error) {
-	data, checksum, err := readConfigWithChecksum(m.configPath)
+	_, checksum, err := readConfigWithChecksum(m.configPath)
 	if err != nil {
 		return 0, err
 	}
@@ -75,11 +75,6 @@ func (m *reloadableDiagnosisEngine) reload() (uint32, error) {
 	m.checksum = checksum
 	m.mu.Unlock()
 
-	m.logger.Info("故障树配置加载成功",
-		zap.Int("fault_trees", len(faultTrees)),
-		zap.Int("bytes", len(data)),
-		zap.String("checksum", formatChecksum(checksum)),
-	)
 	return checksum, nil
 }
 

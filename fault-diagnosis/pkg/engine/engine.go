@@ -22,6 +22,7 @@ type DiagnosisEngine struct {
 	topEventSource      map[string]string            // 顶层事件ID -> 触发源
 	topEventServiceID   map[string]string            // 顶层事件ID -> serviceId
 	topEventServiceName map[string]string            // 顶层事件ID -> serviceName
+	topEventPlanIDs     map[string][]string          // 顶层事件ID -> 触发时命中的修复计划ID
 	topEventMu          sync.RWMutex                 // 顶层事件上下文锁
 }
 
@@ -47,6 +48,7 @@ func NewDiagnosisEngine(faultTree *models.FaultTree, logger *zap.Logger) (*Diagn
 		topEventSource:      make(map[string]string),
 		topEventServiceID:   make(map[string]string),
 		topEventServiceName: make(map[string]string),
+		topEventPlanIDs:     make(map[string][]string),
 	}
 
 	// 构建故障树运行时结构
@@ -56,12 +58,6 @@ func NewDiagnosisEngine(faultTree *models.FaultTree, logger *zap.Logger) (*Diagn
 
 	// 创建求值器
 	engine.evaluator = NewEvaluator(engine.stateManager)
-
-	logger.Info("故障诊断引擎初始化成功",
-		zap.String("fault_tree_id", faultTree.FaultTreeID),
-		zap.Int("top_events", len(faultTree.TopEvents)),
-		zap.Int("basic_events", len(faultTree.BasicEvents)),
-	)
 
 	return engine, nil
 }
@@ -89,13 +85,14 @@ func (e *DiagnosisEngine) buildTree() error {
 	// 2. 创建所有中间事件节点
 	for _, intermediateEvent := range e.faultTree.IntermediateEvents {
 		node := &models.EventNode{
-			EventID:     intermediateEvent.EventID,
-			Name:        intermediateEvent.Name,
-			Description: intermediateEvent.Description,
-			GateType:    intermediateEvent.GateType,
-			IsBasic:     false,
-			State:       models.StateFalse,
-			Children:    make([]*models.EventNode, 0),
+			EventID:        intermediateEvent.EventID,
+			RecoveryPlanID: intermediateEvent.RecoveryPlanID,
+			Name:           intermediateEvent.Name,
+			Description:    intermediateEvent.Description,
+			GateType:       intermediateEvent.GateType,
+			IsBasic:        false,
+			State:          models.StateFalse,
+			Children:       make([]*models.EventNode, 0),
 		}
 		e.eventNodes[intermediateEvent.EventID] = node
 	}
@@ -104,14 +101,15 @@ func (e *DiagnosisEngine) buildTree() error {
 	e.topEvents = make([]*models.EventNode, 0, len(e.faultTree.TopEvents))
 	for _, topEvent := range e.faultTree.TopEvents {
 		node := &models.EventNode{
-			EventID:     topEvent.EventID,
-			Name:        topEvent.Name,
-			Description: topEvent.Description,
-			FaultCode:   topEvent.FaultCode,
-			GateType:    topEvent.GateType,
-			IsBasic:     false,
-			State:       models.StateFalse,
-			Children:    make([]*models.EventNode, 0),
+			EventID:        topEvent.EventID,
+			RecoveryPlanID: topEvent.RecoveryPlanID,
+			Name:           topEvent.Name,
+			Description:    topEvent.Description,
+			FaultCode:      topEvent.FaultCode,
+			GateType:       topEvent.GateType,
+			IsBasic:        false,
+			State:          models.StateFalse,
+			Children:       make([]*models.EventNode, 0),
 		}
 		e.eventNodes[topEvent.EventID] = node
 		e.topEvents = append(e.topEvents, node)
@@ -200,15 +198,7 @@ func (e *DiagnosisEngine) ProcessAlert(alert *models.AlertEvent) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	// 判断是恢复告警还是触发告警
 	isResolved := alert.IsResolved()
-	if !isResolved {
-		e.logger.Info("接收到告警事件",
-			zap.String("alert_id", alert.AlertID),
-			zap.String("type", alert.Type),
-			zap.String("status", string(alert.Status)),
-			zap.Bool("is_resolved", isResolved))
-	}
 
 	// 将告警映射到基本事件
 	eventID, ok := e.alertToEvent[alert.AlertID]
@@ -223,10 +213,6 @@ func (e *DiagnosisEngine) ProcessAlert(alert *models.AlertEvent) {
 	} else {
 		// 触发告警：将基本事件置为真
 		e.stateManager.SetState(eventID, models.StateTrue)
-		e.logger.Info("基本事件状态已更新",
-			zap.String("event_id", eventID),
-			zap.String("state", "TRUE"),
-		)
 	}
 
 	// 触发诊断求值（无论触发/恢复都进行，以更新故障状态）
@@ -261,20 +247,15 @@ func (e *DiagnosisEngine) diagnose(source, serviceID, serviceName string) {
 				e.setTopEventContext(topEvent.EventID, source, serviceID, serviceName)
 				ctxSource, ctxServiceID, ctxServiceName := e.getTopEventContext(topEvent.EventID, source, serviceID, serviceName)
 				diagnosis := e.generateDiagnosisResult(topEvent, ctxSource)
+				planIDs := e.recoveryPlanIDsForPath(diagnosis.TriggerPath)
+				e.setTopEventPlanIDs(topEvent.EventID, planIDs)
+				e.applyRecoveryPlanMetadata(diagnosis, planIDs)
 				if ctxServiceID != "" {
 					diagnosis.Metadata["serviceId"] = ctxServiceID
 				}
 				if ctxServiceName != "" {
 					diagnosis.Metadata["serviceName"] = ctxServiceName
 				}
-
-				e.logger.Info("检测到故障",
-					zap.String("diagnosis_id", diagnosis.DiagnosisID),
-					zap.String("fault_code", diagnosis.FaultCode),
-					zap.String("top_event", diagnosis.TopEventName),
-					zap.String("source", diagnosis.Source),
-					zap.Strings("trigger_path", diagnosis.TriggerPath),
-				)
 
 				// 调用回调函数
 				if e.callback != nil {
@@ -285,6 +266,7 @@ func (e *DiagnosisEngine) diagnose(source, serviceID, serviceName string) {
 			// 故障恢复：发送恢复诊断结果（使用触发时的上下文）
 			ctxSource, ctxServiceID, ctxServiceName := e.getTopEventContext(topEvent.EventID, source, serviceID, serviceName)
 			diagnosis := e.generateDiagnosisResult(topEvent, ctxSource)
+			e.applyRecoveryPlanMetadata(diagnosis, e.getTopEventPlanIDs(topEvent.EventID))
 			if ctxServiceID != "" {
 				diagnosis.Metadata["serviceId"] = ctxServiceID
 			}
@@ -342,6 +324,48 @@ func (e *DiagnosisEngine) clearTopEventContext(eventID string) {
 	delete(e.topEventSource, eventID)
 	delete(e.topEventServiceID, eventID)
 	delete(e.topEventServiceName, eventID)
+	delete(e.topEventPlanIDs, eventID)
+}
+
+func (e *DiagnosisEngine) setTopEventPlanIDs(eventID string, planIDs []string) {
+	e.topEventMu.Lock()
+	defer e.topEventMu.Unlock()
+	e.topEventPlanIDs[eventID] = append([]string(nil), planIDs...)
+}
+
+func (e *DiagnosisEngine) getTopEventPlanIDs(eventID string) []string {
+	e.topEventMu.RLock()
+	defer e.topEventMu.RUnlock()
+	return append([]string(nil), e.topEventPlanIDs[eventID]...)
+}
+
+func (e *DiagnosisEngine) recoveryPlanIDsForPath(path []string) []string {
+	seen := make(map[string]bool)
+	planIDs := make([]string, 0)
+	for _, eventID := range path {
+		node, ok := e.eventNodes[eventID]
+		if !ok || node.RecoveryPlanID == "" || seen[node.RecoveryPlanID] {
+			continue
+		}
+		seen[node.RecoveryPlanID] = true
+		planIDs = append(planIDs, node.RecoveryPlanID)
+	}
+	return planIDs
+}
+
+func (e *DiagnosisEngine) applyRecoveryPlanMetadata(diagnosis *models.DiagnosisResult, planIDs []string) {
+	if diagnosis == nil {
+		return
+	}
+	if diagnosis.Metadata == nil {
+		diagnosis.Metadata = make(map[string]interface{})
+	}
+	if len(planIDs) == 0 {
+		return
+	}
+	copied := append([]string(nil), planIDs...)
+	diagnosis.Metadata["recovery_plan_ids"] = copied
+	diagnosis.Metadata["primary_recovery_plan_id"] = copied[0]
 }
 
 // generateDiagnosisResult 生成诊断结果
@@ -374,5 +398,4 @@ func (e *DiagnosisEngine) ResetAll() {
 	defer e.mu.Unlock()
 
 	e.stateManager.ResetAll()
-	e.logger.Info("所有事件状态已重置")
 }
