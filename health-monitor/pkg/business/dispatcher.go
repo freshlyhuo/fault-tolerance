@@ -33,8 +33,6 @@ func (d *Dispatcher) SetDiagnosisReceiver(receiver alert.DiagnosisReceiver) {
 
 // HandleBusinessMetrics 处理业务层解析后的指标
 func (d *Dispatcher) HandleBusinessMetrics(ctx context.Context, bm *model.BusinessMetrics) {
-	fmt.Printf("[业务层Dispatcher] 收到指标：Type=%T Timestamp=%d\n", bm.Data, bm.Timestamp)
-
 	// 1. 推送到 StateManager
 	if d.stateManager != nil {
 		businessMetric := &state.BusinessMetric{
@@ -43,8 +41,6 @@ func (d *Dispatcher) HandleBusinessMetrics(ctx context.Context, bm *model.Busine
 		}
 		if err := d.stateManager.UpdateMetric(businessMetric); err != nil {
 			fmt.Printf("[业务层Dispatcher] 保存到StateManager失败: %v\n", err)
-		} else {
-			fmt.Printf("[业务层Dispatcher] 已保存到StateManager: Type=%T\n", bm.Data)
 		}
 	}
 

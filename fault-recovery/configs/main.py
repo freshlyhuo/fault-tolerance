@@ -205,6 +205,10 @@ def rpc_error(err: Exception | str) -> dict[str, Any]:
     return {"ok": False, "error": str(err)}
 
 
+def build_reply_payload(body: dict[str, Any]) -> dict[str, Any]:
+    return {"param": body}
+
+
 def request_method_is_set(request: Any, body: dict[str, Any]) -> bool:
     method = getattr(request, "method", None)
     if isinstance(method, int):
@@ -388,7 +392,7 @@ class Service:
     @staticmethod
     def _reply(cli: Any, request: Any, body: dict[str, Any]) -> None:
         try:
-            cli.reply(request.seqno, {"param": json.dumps(body, ensure_ascii=False)}, status=0)
+            cli.reply(request.seqno, build_reply_payload(body), status=0)
         except Exception as exc:  # noqa: BLE001
             logging.exception("rpc reply failed: %s", exc)
 

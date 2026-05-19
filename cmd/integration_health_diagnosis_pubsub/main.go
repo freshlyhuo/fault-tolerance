@@ -124,9 +124,9 @@ func main() {
 	}
 	defer pubsubClient.Close()
 
-	fmt.Println("========== 健康监测 + 故障诊断集成测试 ==========")
+	fmt.Println("========== 软件容错测试 ==========")
 	fmt.Printf("故障树配置: %s\n", *diagnosisConfigPath)
-	fmt.Printf("故障修复方案: %s\n", displayConfigPath(*recoveryPlanConfig))
+	fmt.Printf("故障码处置程序映射配置: %s\n", recovery.ResolvePlanConfigPath(*recoveryPlanConfig))
 	fmt.Printf("硬件PubSub: %s %s\n", *hardwarePubSubAddr, *hardwarePubSubURL)
 	fmt.Printf("自动退出诊断数: %d\n", *exitAfterDiagnoses)
 	fmt.Println("等待硬件指标、告警和诊断结果...")

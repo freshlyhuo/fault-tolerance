@@ -40,7 +40,11 @@ GOOS=sylixos GOARCH=arm64 go build -ldflags="-s -w" -o build/fault-recovery-conf
   --etcd=192.168.1.200:2379 \
   --interval=30
 ```
+./board-hardware-pubsub-sylixos -addr 127.0.0.1:6551 -url /hardware/metrics -interval 2s -scenario power_dispatch -warmup-count 3 -repeat=true &
 
+./integration-health-diagnosis-pubsub-sylixos -hardware-pubsub-addr 127.0.0.1:6551 -hardware-pubsub-url /hardware/metrics -diagnosis-config ./fault-diagnosis/configs/fault_trees_multi_template.json -recovery-plan-config ./fault-recovery/configs/recovery_plan_mapping_template.json -exit-after-diagnoses-recovery-drain-timeout 45s -timeout 120s
+
+./integration-health-diagnosis-pubsub-sylixos -hardware-pubsub-addr 127.0.0.1:6551 -hardware-pubsub-url /hardware/metrics -diagnosis-config ./fault-diagnosis/configs/fault_trees_multi_template.json -recovery-plan-config ./fault-recovery/configs/recovery_plan_mapping_template.json -exit-after-diagnoses 1 -recovery-drain-timeout 45s -timeout 120s
 ### 前台运行（调试）
 
 ```bash

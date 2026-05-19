@@ -116,6 +116,9 @@ func (c *VSOAContainerClient) Dispatch(ctx context.Context, instructionID string
 		if completed.Error != nil {
 			return DispatchResponse{}, completed.Error
 		}
+		if completed.Reply != nil {
+			reply = completed.Reply
+		}
 	}
 
 	var envelope struct {

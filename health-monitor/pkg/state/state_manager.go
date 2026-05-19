@@ -302,10 +302,15 @@ func (sm *StateManager) checkAndUpdateAlertStateByKey(key string, isFiring bool)
 
 	wasActive, exists := sm.alertStates[key]
 
-	// 状态发生变化
-	if !exists || wasActive != isFiring {
+	if !exists {
 		sm.alertStates[key] = isFiring
-		return true, isFiring // 需要发送告警
+		return isFiring, isFiring
+	}
+
+	// 状态发生变化
+	if wasActive != isFiring {
+		sm.alertStates[key] = isFiring
+		return true, isFiring
 	}
 
 	// 状态未变化

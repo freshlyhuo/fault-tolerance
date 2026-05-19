@@ -131,7 +131,6 @@ func (c *Client) onPublish(ctx context.Context) func(*protocol.Message) {
 			return
 		}
 
-		fmt.Printf("[硬件PubSub] 收到指标 URL=%s Type=%T Timestamp=%d\n", string(m.URL), bm.Data, bm.Timestamp)
 		c.dispatcher.HandleBusinessMetrics(ctx, bm)
 	}
 }

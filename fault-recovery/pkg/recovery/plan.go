@@ -35,9 +35,7 @@ type planConfigFile struct {
 }
 
 func LoadPlanRegistry(path string) (*PlanRegistry, error) {
-	if strings.TrimSpace(path) == "" {
-		path = defaultPlanConfigPath()
-	}
+	path = ResolvePlanConfigPath(path)
 
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -83,6 +81,13 @@ func LoadPlanRegistry(path string) (*PlanRegistry, error) {
 	}
 
 	return &PlanRegistry{plans: plans}, nil
+}
+
+func ResolvePlanConfigPath(path string) string {
+	if strings.TrimSpace(path) == "" {
+		return defaultPlanConfigPath()
+	}
+	return path
 }
 
 func NewPlanRegistry(plans map[string]RecoveryPlan) *PlanRegistry {

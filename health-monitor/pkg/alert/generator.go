@@ -104,7 +104,12 @@ func (g *Generator) outputAlerts(alerts []*model.AlertEvent) {
 		if err := g.alertAdapter.SendAlerts(alerts); err != nil {
 			fmt.Printf("发送告警到故障诊断模块失败: %v\n", err)
 		} else {
-			fmt.Printf("已发送 %d 个告警到故障诊断模块\n", len(alerts))
+			firingCount, resolvedCount := countAlertStatuses(alerts)
+			if resolvedCount > 0 {
+				fmt.Printf("已发送 %d 个告警到故障诊断模块（触发 %d 个，恢复 %d 个）\n", len(alerts), firingCount, resolvedCount)
+			} else {
+				fmt.Printf("已发送 %d 个告警到故障诊断模块\n", len(alerts))
+			}
 		}
 	}
 
@@ -113,6 +118,20 @@ func (g *Generator) outputAlerts(alerts []*model.AlertEvent) {
 	// 2. 数据库
 	// 3. 可视化平台
 	// 4. 告警通知系统（邮件、短信等）
+}
+
+func countAlertStatuses(alerts []*model.AlertEvent) (firingCount, resolvedCount int) {
+	for _, alert := range alerts {
+		if alert == nil {
+			continue
+		}
+		if alert.Status == model.AlertStatusResolved {
+			resolvedCount++
+			continue
+		}
+		firingCount++
+	}
+	return firingCount, resolvedCount
 }
 
 // printAlert 打印单个告警
