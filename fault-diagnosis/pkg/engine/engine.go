@@ -10,19 +10,20 @@ import (
 
 // DiagnosisEngine 故障诊断引擎
 type DiagnosisEngine struct {
-	faultTree    *models.FaultTree       // 故障树配置
-	topEvents    []*models.EventNode     // 顶层事件节点
-	eventNodes   map[string]*models.EventNode // 事件ID -> 节点
-	alertToEvent map[string]string       // 告警ID -> 基本事件ID
-	stateManager *StateManager           // 状态管理器
-	evaluator    *Evaluator              // 求值器
-	logger       *zap.Logger             // 日志
-	mu           sync.RWMutex            // 读写锁
-	callback     DiagnosisCallback       // 诊断回调函数
-	topEventSource      map[string]string // 顶层事件ID -> 触发源
-	topEventServiceID   map[string]string // 顶层事件ID -> serviceId
-	topEventServiceName map[string]string // 顶层事件ID -> serviceName
-	topEventMu          sync.RWMutex      // 顶层事件上下文锁
+	faultTree           *models.FaultTree            // 故障树配置
+	topEvents           []*models.EventNode          // 顶层事件节点
+	eventNodes          map[string]*models.EventNode // 事件ID -> 节点
+	alertToEvent        map[string]string            // 告警ID -> 基本事件ID
+	stateManager        *StateManager                // 状态管理器
+	evaluator           *Evaluator                   // 求值器
+	logger              *zap.Logger                  // 日志
+	mu                  sync.RWMutex                 // 读写锁
+	callback            DiagnosisCallback            // 诊断回调函数
+	topEventSource      map[string]string            // 顶层事件ID -> 触发源
+	topEventServiceID   map[string]string            // 顶层事件ID -> serviceId
+	topEventServiceName map[string]string            // 顶层事件ID -> serviceName
+	topEventPlanIDs     map[string][]string          // 顶层事件ID -> 触发时命中的修复计划ID
+	topEventMu          sync.RWMutex                 // 顶层事件上下文锁
 }
 
 // DiagnosisCallback 诊断回调函数类型
@@ -39,14 +40,15 @@ func NewDiagnosisEngine(faultTree *models.FaultTree, logger *zap.Logger) (*Diagn
 	}
 
 	engine := &DiagnosisEngine{
-		faultTree:    faultTree,
-		eventNodes:   make(map[string]*models.EventNode),
-		alertToEvent: make(map[string]string),
-		stateManager: NewStateManager(),
-		logger:       logger,
+		faultTree:           faultTree,
+		eventNodes:          make(map[string]*models.EventNode),
+		alertToEvent:        make(map[string]string),
+		stateManager:        NewStateManager(),
+		logger:              logger,
 		topEventSource:      make(map[string]string),
 		topEventServiceID:   make(map[string]string),
 		topEventServiceName: make(map[string]string),
+		topEventPlanIDs:     make(map[string][]string),
 	}
 
 	// 构建故障树运行时结构
@@ -56,12 +58,6 @@ func NewDiagnosisEngine(faultTree *models.FaultTree, logger *zap.Logger) (*Diagn
 
 	// 创建求值器
 	engine.evaluator = NewEvaluator(engine.stateManager)
-
-	logger.Info("故障诊断引擎初始化成功",
-		zap.String("fault_tree_id", faultTree.FaultTreeID),
-		zap.Int("top_events", len(faultTree.TopEvents)),
-		zap.Int("basic_events", len(faultTree.BasicEvents)),
-	)
 
 	return engine, nil
 }
@@ -81,7 +77,7 @@ func (e *DiagnosisEngine) buildTree() error {
 		}
 		e.eventNodes[basicEvent.EventID] = node
 		e.alertToEvent[basicEvent.AlertID] = basicEvent.EventID
-		
+
 		// 初始化状态为假
 		e.stateManager.SetState(basicEvent.EventID, models.StateFalse)
 	}
@@ -89,13 +85,14 @@ func (e *DiagnosisEngine) buildTree() error {
 	// 2. 创建所有中间事件节点
 	for _, intermediateEvent := range e.faultTree.IntermediateEvents {
 		node := &models.EventNode{
-			EventID:     intermediateEvent.EventID,
-			Name:        intermediateEvent.Name,
-			Description: intermediateEvent.Description,
-			GateType:    intermediateEvent.GateType,
-			IsBasic:     false,
-			State:       models.StateFalse,
-			Children:    make([]*models.EventNode, 0),
+			EventID:        intermediateEvent.EventID,
+			RecoveryPlanID: intermediateEvent.RecoveryPlanID,
+			Name:           intermediateEvent.Name,
+			Description:    intermediateEvent.Description,
+			GateType:       intermediateEvent.GateType,
+			IsBasic:        false,
+			State:          models.StateFalse,
+			Children:       make([]*models.EventNode, 0),
 		}
 		e.eventNodes[intermediateEvent.EventID] = node
 	}
@@ -104,14 +101,15 @@ func (e *DiagnosisEngine) buildTree() error {
 	e.topEvents = make([]*models.EventNode, 0, len(e.faultTree.TopEvents))
 	for _, topEvent := range e.faultTree.TopEvents {
 		node := &models.EventNode{
-			EventID:     topEvent.EventID,
-			Name:        topEvent.Name,
-			Description: topEvent.Description,
-			FaultCode:   topEvent.FaultCode,
-			GateType:    topEvent.GateType,
-			IsBasic:     false,
-			State:       models.StateFalse,
-			Children:    make([]*models.EventNode, 0),
+			EventID:        topEvent.EventID,
+			RecoveryPlanID: topEvent.RecoveryPlanID,
+			Name:           topEvent.Name,
+			Description:    topEvent.Description,
+			FaultCode:      topEvent.FaultCode,
+			GateType:       topEvent.GateType,
+			IsBasic:        false,
+			State:          models.StateFalse,
+			Children:       make([]*models.EventNode, 0),
 		}
 		e.eventNodes[topEvent.EventID] = node
 		e.topEvents = append(e.topEvents, node)
@@ -200,16 +198,7 @@ func (e *DiagnosisEngine) ProcessAlert(alert *models.AlertEvent) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	// 判断是恢复告警还是触发告警
 	isResolved := alert.IsResolved()
-	if !isResolved{
-		e.logger.Info("接收到告警事件",
-		zap.String("alert_id", alert.AlertID),
-		zap.String("type", alert.Type),
-		zap.String("status", string(alert.Status)),
-		zap.String("severity", alert.Severity),
-		zap.Bool("is_resolved", isResolved))
-	}
 
 	// 将告警映射到基本事件
 	eventID, ok := e.alertToEvent[alert.AlertID]
@@ -224,10 +213,6 @@ func (e *DiagnosisEngine) ProcessAlert(alert *models.AlertEvent) {
 	} else {
 		// 触发告警：将基本事件置为真
 		e.stateManager.SetState(eventID, models.StateTrue)
-		e.logger.Info("基本事件状态已更新",
-			zap.String("event_id", eventID),
-			zap.String("state", "TRUE"),
-		)
 	}
 
 	// 触发诊断求值（无论触发/恢复都进行，以更新故障状态）
@@ -262,20 +247,15 @@ func (e *DiagnosisEngine) diagnose(source, serviceID, serviceName string) {
 				e.setTopEventContext(topEvent.EventID, source, serviceID, serviceName)
 				ctxSource, ctxServiceID, ctxServiceName := e.getTopEventContext(topEvent.EventID, source, serviceID, serviceName)
 				diagnosis := e.generateDiagnosisResult(topEvent, ctxSource)
+				planIDs := e.recoveryPlanIDsForPath(diagnosis.TriggerPath)
+				e.setTopEventPlanIDs(topEvent.EventID, planIDs)
+				e.applyRecoveryPlanMetadata(diagnosis, planIDs)
 				if ctxServiceID != "" {
 					diagnosis.Metadata["serviceId"] = ctxServiceID
 				}
 				if ctxServiceName != "" {
 					diagnosis.Metadata["serviceName"] = ctxServiceName
 				}
-
-				e.logger.Info("检测到故障",
-					zap.String("diagnosis_id", diagnosis.DiagnosisID),
-					zap.String("fault_code", diagnosis.FaultCode),
-					zap.String("top_event", diagnosis.TopEventName),
-					zap.String("source", diagnosis.Source),
-					zap.Strings("trigger_path", diagnosis.TriggerPath),
-				)
 
 				// 调用回调函数
 				if e.callback != nil {
@@ -286,6 +266,7 @@ func (e *DiagnosisEngine) diagnose(source, serviceID, serviceName string) {
 			// 故障恢复：发送恢复诊断结果（使用触发时的上下文）
 			ctxSource, ctxServiceID, ctxServiceName := e.getTopEventContext(topEvent.EventID, source, serviceID, serviceName)
 			diagnosis := e.generateDiagnosisResult(topEvent, ctxSource)
+			e.applyRecoveryPlanMetadata(diagnosis, e.getTopEventPlanIDs(topEvent.EventID))
 			if ctxServiceID != "" {
 				diagnosis.Metadata["serviceId"] = ctxServiceID
 			}
@@ -303,29 +284,6 @@ func (e *DiagnosisEngine) diagnose(source, serviceID, serviceName string) {
 	if triggered == 0 {
 		e.logger.Debug("未触发任何顶层故障事件")
 	}
-}
-
-func (e *DiagnosisEngine) setTopEventSource(eventID, source string) {
-	e.topEventMu.Lock()
-	defer e.topEventMu.Unlock()
-	if source != "" {
-		e.topEventSource[eventID] = source
-	}
-}
-
-func (e *DiagnosisEngine) getTopEventSource(eventID, fallback string) string {
-	e.topEventMu.RLock()
-	defer e.topEventMu.RUnlock()
-	if src, ok := e.topEventSource[eventID]; ok && src != "" {
-		return src
-	}
-	return fallback
-}
-
-func (e *DiagnosisEngine) clearTopEventSource(eventID string) {
-	e.topEventMu.Lock()
-	defer e.topEventMu.Unlock()
-	delete(e.topEventSource, eventID)
 }
 
 func (e *DiagnosisEngine) setTopEventContext(eventID, source, serviceID, serviceName string) {
@@ -366,6 +324,48 @@ func (e *DiagnosisEngine) clearTopEventContext(eventID string) {
 	delete(e.topEventSource, eventID)
 	delete(e.topEventServiceID, eventID)
 	delete(e.topEventServiceName, eventID)
+	delete(e.topEventPlanIDs, eventID)
+}
+
+func (e *DiagnosisEngine) setTopEventPlanIDs(eventID string, planIDs []string) {
+	e.topEventMu.Lock()
+	defer e.topEventMu.Unlock()
+	e.topEventPlanIDs[eventID] = append([]string(nil), planIDs...)
+}
+
+func (e *DiagnosisEngine) getTopEventPlanIDs(eventID string) []string {
+	e.topEventMu.RLock()
+	defer e.topEventMu.RUnlock()
+	return append([]string(nil), e.topEventPlanIDs[eventID]...)
+}
+
+func (e *DiagnosisEngine) recoveryPlanIDsForPath(path []string) []string {
+	seen := make(map[string]bool)
+	planIDs := make([]string, 0)
+	for _, eventID := range path {
+		node, ok := e.eventNodes[eventID]
+		if !ok || node.RecoveryPlanID == "" || seen[node.RecoveryPlanID] {
+			continue
+		}
+		seen[node.RecoveryPlanID] = true
+		planIDs = append(planIDs, node.RecoveryPlanID)
+	}
+	return planIDs
+}
+
+func (e *DiagnosisEngine) applyRecoveryPlanMetadata(diagnosis *models.DiagnosisResult, planIDs []string) {
+	if diagnosis == nil {
+		return
+	}
+	if diagnosis.Metadata == nil {
+		diagnosis.Metadata = make(map[string]interface{})
+	}
+	if len(planIDs) == 0 {
+		return
+	}
+	copied := append([]string(nil), planIDs...)
+	diagnosis.Metadata["recovery_plan_ids"] = copied
+	diagnosis.Metadata["primary_recovery_plan_id"] = copied[0]
 }
 
 // generateDiagnosisResult 生成诊断结果
@@ -392,27 +392,10 @@ func (e *DiagnosisEngine) generateDiagnosisResult(topEvent *models.EventNode, so
 	return diagnosis
 }
 
-// ResetEvent 重置事件状态
-func (e *DiagnosisEngine) ResetEvent(eventID string) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	
-	e.stateManager.ResetState(eventID)
-	e.logger.Info("事件状态已重置",
-		zap.String("event_id", eventID),
-	)
-}
-
 // ResetAll 重置所有事件状态
 func (e *DiagnosisEngine) ResetAll() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	
-	e.stateManager.ResetAll()
-	e.logger.Info("所有事件状态已重置")
-}
 
-// GetStateManager 获取状态管理器（用于测试）
-func (e *DiagnosisEngine) GetStateManager() *StateManager {
-	return e.stateManager
+	e.stateManager.ResetAll()
 }

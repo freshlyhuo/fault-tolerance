@@ -3,6 +3,7 @@ module fault-tolerance
 go 1.25.0
 
 require (
+	github.com/acoinfo/vsoa v1.1.0
 	fault-diagnosis v0.0.0
 	go.uber.org/zap v1.27.1
 	health-monitor v0.0.0

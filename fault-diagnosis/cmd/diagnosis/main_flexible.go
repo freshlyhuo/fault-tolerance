@@ -1,6 +1,10 @@
+//go:build flexible
+// +build flexible
+
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -8,7 +12,7 @@ import (
 	"syscall"
 
 	"fault-diagnosis/pkg/config"
-	"fault-diagnosis/pkg/engine"
+	"fault-diagnosis/pkg/configrpc"
 	"fault-diagnosis/pkg/models"
 	"fault-diagnosis/pkg/receiver"
 	"fault-diagnosis/pkg/utils"
@@ -16,22 +20,12 @@ import (
 )
 
 var (
-	configPath     = flag.String("config", "./configs/fault_tree_business.json", "故障树配置文件路径")
-	receiverType   = flag.String("receiver", "channel", "接收器类型 (channel/udp/etcd)")
-	
-	// Channel接收器参数
-	channelBuffer  = flag.Int("channel-buffer", 100, "Channel缓冲大小")
-	
-	// UDP接收器参数
-	udpAddress     = flag.String("udp-addr", ":9999", "UDP监听地址")
-	
-	// etcd接收器参数
-	etcdEndpoints  = flag.String("etcd", "localhost:2379", "etcd集群地址（逗号分隔）")
-	watchPrefix    = flag.String("prefix", "/alerts/", "监听的etcd键前缀")
-	
-	// 通用参数
-	logLevel       = flag.String("log-level", "info", "日志级别 (debug/info/warn/error)")
-	outputPath     = flag.String("output", "", "诊断结果输出路径（为空则输出到stdout）")
+	configPath      = flag.String("config", "./configs/fault_trees_multi_template.json", "故障树配置文件路径")
+	enableConfigRPC = flag.Bool("enable-config-rpc", true, "是否启用VSOA配置RPC服务")
+	configRPCAddr   = flag.String("config-rpc-addr", "127.0.0.1:3001", "VSOA配置RPC服务监听地址")
+	channelBuffer   = flag.Int("channel-buffer", 100, "Channel缓冲大小")
+	logLevel        = flag.String("log-level", "info", "日志级别 (debug/info/warn/error)")
+	outputPath      = flag.String("output", "", "诊断结果输出路径（为空则输出到stdout）")
 )
 
 func main() {
@@ -45,64 +39,32 @@ func main() {
 	}
 	defer logger.Sync()
 
-	logger.Info("故障诊断模块启动",
-		zap.String("config", *configPath),
-		zap.String("receiver_type", *receiverType),
-		zap.String("log_level", *logLevel),
-	)
-
-	// 加载故障树配置
-	loader := config.NewLoader(*configPath)
-	faultTree, err := loader.LoadFaultTree()
-	if err != nil {
-		logger.Fatal("加载故障树配置失败", zap.Error(err))
-	}
-
-	logger.Info("故障树配置加载成功",
-		zap.String("fault_tree_id", faultTree.FaultTreeID),
-		zap.Int("top_events", len(faultTree.TopEvents)),
-		zap.Int("intermediate_events", len(faultTree.IntermediateEvents)),
-		zap.Int("basic_events", len(faultTree.BasicEvents)),
-	)
-
-	// 创建诊断引擎
-	diagnosisEngine, err := engine.NewDiagnosisEngine(faultTree, logger)
-	if err != nil {
-		logger.Fatal("创建诊断引擎失败", zap.Error(err))
-	}
-
-	// 设置诊断回调函数
-	diagnosisEngine.SetCallback(func(diagnosis *models.DiagnosisResult) {
+	config.SetFaultTreeConfigPath(*configPath)
+	diagnosisEngine, err := newReloadableDiagnosisEngine(*configPath, logger, func(diagnosis *models.DiagnosisResult) {
 		handleDiagnosisResult(diagnosis, logger)
 	})
-
-	// 根据类型创建接收器
-	var alertReceiver receiver.Receiver
-	
-	switch *receiverType {
-	case "channel":
-		logger.Info("使用Channel接收器（内存队列）", zap.Int("buffer_size", *channelBuffer))
-		alertReceiver = receiver.NewChannelReceiver(*channelBuffer, logger)
-		
-	case "udp":
-		logger.Info("使用UDP接收器", zap.String("address", *udpAddress))
-		alertReceiver = receiver.NewUDPReceiver(*udpAddress, logger)
-		
-	case "etcd":
-		logger.Info("使用etcd接收器",
-			zap.String("endpoints", *etcdEndpoints),
-			zap.String("prefix", *watchPrefix),
-		)
-		endpoints := []string{*etcdEndpoints}
-		etcdReceiver, err := receiver.NewEtcdReceiver(endpoints, *watchPrefix, logger)
-		if err != nil {
-			logger.Fatal("创建etcd接收器失败", zap.Error(err))
-		}
-		alertReceiver = etcdReceiver
-		
-	default:
-		logger.Fatal("不支持的接收器类型", zap.String("type", *receiverType))
+	if err != nil {
+		logger.Fatal("初始化诊断引擎失败", zap.Error(err))
 	}
+
+	var configRPCServer *configrpc.VSOAServer
+	if *enableConfigRPC {
+		service := configrpc.NewRuntimeConfigServiceWithReload(func() error {
+			return diagnosisEngine.Reload()
+		})
+		configRPCServer = configrpc.NewVSOAServer(*configRPCAddr, service)
+		if err := configRPCServer.Start(); err != nil {
+			logger.Fatal("启动配置RPC服务失败", zap.Error(err))
+		}
+		defer configRPCServer.Close()
+		go func() {
+			if err := <-configRPCServer.Errors(); err != nil {
+				logger.Error("配置RPC服务异常退出", zap.Error(err))
+			}
+		}()
+	}
+
+	alertReceiver := receiver.NewChannelReceiver(*channelBuffer, logger)
 
 	// 设置告警处理函数
 	alertReceiver.SetHandler(func(alert *models.AlertEvent) {
@@ -115,16 +77,10 @@ func main() {
 	}
 	defer alertReceiver.Stop()
 
-	logger.Info("故障诊断模块已启动，等待告警事件...",
-		zap.String("receiver_type", *receiverType),
-	)
-
 	// 等待中断信号
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
-
-	logger.Info("收到退出信号，正在关闭...")
 }
 
 // handleDiagnosisResult 处理诊断结果
@@ -135,6 +91,7 @@ func handleDiagnosisResult(diagnosis *models.DiagnosisResult, logger *zap.Logger
 		zap.String("顶层事件", diagnosis.TopEventName),
 		zap.String("故障码", diagnosis.FaultCode),
 		zap.String("故障原因", diagnosis.FaultReason),
+		zap.String("诊断源", diagnosis.Source),
 		zap.Time("诊断时间", diagnosis.Timestamp),
 		zap.Strings("触发路径", diagnosis.TriggerPath),
 		zap.Strings("基本事件", diagnosis.BasicEvents),
@@ -142,6 +99,33 @@ func handleDiagnosisResult(diagnosis *models.DiagnosisResult, logger *zap.Logger
 
 	// 如果指定了输出路径，将诊断结果写入文件
 	if *outputPath != "" {
-		// writeToFile 逻辑保持不变
+		writeToFile(diagnosis, logger)
 	}
+}
+
+// writeToFile 将诊断结果写入文件
+func writeToFile(diagnosis *models.DiagnosisResult, logger *zap.Logger) {
+	data, err := json.MarshalIndent(diagnosis, "", "  ")
+	if err != nil {
+		logger.Error("序列化诊断结果失败", zap.Error(err))
+		return
+	}
+
+	f, err := os.OpenFile(*outputPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		logger.Error("打开输出文件失败", zap.Error(err))
+		return
+	}
+	defer f.Close()
+
+	if _, err := f.Write(data); err != nil {
+		logger.Error("写入诊断结果失败", zap.Error(err))
+		return
+	}
+
+	if _, err := f.WriteString("\n"); err != nil {
+		logger.Error("写入换行符失败", zap.Error(err))
+		return
+	}
+
 }

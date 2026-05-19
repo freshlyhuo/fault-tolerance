@@ -1,0 +1,487 @@
+{
+  "_meta": {
+    "active_version": "V1.2",
+    "active_checksum": "2B69E0C8",
+    "updated_at": "2026-04-17T14:30:00Z"
+  },
+  "plans": {
+    "RP-001": {
+      "description": null,
+      "instruction_id": null,
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 2000
+      }
+    },
+    "RP-002": {
+      "description": "重启can",
+      "instruction_id": [
+        "K500038",
+        "CTRL_WAIT_3000ms",
+        "K500037"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 2000
+      }
+    },
+    "RP-003": {
+      "description": "放电开关禁止打开",
+      "instruction_id": [
+        "K50032"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-004": {
+      "description": "重启AD",
+      "instruction_id": [
+        "K50166"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-005": {
+      "description": "热敏采集电路异常",
+      "instruction_id": null,
+      "domain": "business",
+      "executor": "log",
+      "timeout_ms": 10000,
+      "max_retries": 1,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-006": {
+      "description": "平台热控开关打开异常-can异常-重发指令",
+      "instruction_id": [
+        "K50011"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-007": {
+      "description": "平台热控开关打开异常-AD模块异常-重启AD",
+      "instruction_id": [
+        "K50166",
+        "CTRL_WAIT_3000ms",
+        "K50011"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-008": {
+      "description": "平台热控开关打开异常-OC指令异常-重启oc",
+      "instruction_id": [
+        "K50175",
+        "CTRL_WAIT_3000ms",
+        "K50011"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-009": {
+      "description": "电池热控开关打开异常-can异常-重发指令",
+      "instruction_id": [
+        "K50132"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-010": {
+      "description": "电池热控开关打开异常-AD模块异常-重启AD",
+      "instruction_id": [
+        "K50166",
+        "CTRL_WAIT_3000ms",
+        "K50132"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-011": {
+      "description": "电池热控开关打开异常-OC指令异常-重启oc",
+      "instruction_id": [
+        "K50175",
+        "CTRL_WAIT_3000ms",
+        "K50132"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-012": {
+      "description": "储箱热控开关打开异常-can异常-重发指令",
+      "instruction_id": [
+        "K50005"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-013": {
+      "description": "储箱热控开关打开异常-AD模块异常-重启AD",
+      "instruction_id": [
+        "K50166",
+        "CTRL_WAIT_3000ms",
+        "K50005"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-014": {
+      "description": "储箱热控开关打开异常-OC指令异常-重启oc",
+      "instruction_id": [
+        "K50175",
+        "CTRL_WAIT_3000ms",
+        "K50005"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-015": {
+      "description": "通信机加电，仍异常关闭通信机",
+      "instruction_id": [
+        "K50003",
+        "CTRL_WAIT_3000ms",
+        "CTRL_RECHECK_error",
+        "K50004"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-016": {
+      "description": "通信机发射机打开失败-can异常-重发指令",
+      "instruction_id": [
+        "K52519"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-017": {
+      "description": "通信机发射机打开失败-重启通信机",
+      "instruction_id": [
+        "K50004",
+        "CTRL_WAIT_10000ms",
+        "CTRL_RECHECK_Communication_power_status_off",
+        "K50003",
+        "CTRL_WAIT_3000ms",
+        "K52519"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-018": {
+      "description": "空空-星间通信机接收发射手动衰减0dB",
+      "instruction_id": [
+        "K55501",
+        "CTRL_WAIT_3000ms",
+        "K55502"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-019": {
+      "description": "遥测密态切换失败-can异常-重发指令",
+      "instruction_id": [
+        "K50502"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-020": {
+      "description": "遥测密态切换失败-重启通信机",
+      "instruction_id": [
+        "K50004",
+        "CTRL_WAIT_10000ms",
+        "CTRL_RECHECK_Communication_power_status_off",
+        "K50003",
+        "CTRL_WAIT_3000ms",
+        "K50502"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-021": {
+      "description": "遥控密态切换失败-can异常-重发指令",
+      "instruction_id": [
+        "K50504"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-022": {
+      "description": "遥控密态切换失败-重启通信机",
+      "instruction_id": [
+        "K50004",
+        "CTRL_WAIT_10000ms",
+        "CTRL_RECHECK_Communication_power_status_off",
+        "K50003",
+        "CTRL_WAIT_3000ms",
+        "K50504"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-023": {
+      "description": "GNSSA上电异常-重启/更换至B",
+      "instruction_id": [
+        "K52002",
+        "CTRL_WAIT_10000ms",
+        "CTRL_RECHECK_GNSSA_power_status_off",
+        "K50001",
+        "CTRL_WAIT_10000ms",
+        "CTRL_RECHECK_error",
+        "K52002",
+        "CTRL_WAIT_3000ms",
+        "K52130"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-024": {
+      "description": "陀螺仪重启",
+      "instruction_id": [
+        "K51002",
+        "CTRL_WAIT_10000ms",
+        "CTRL_RECHECK_Gyroscope_power_status_off",
+        "K51001"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-025": {
+      "description": "MEMS重启",
+      "instruction_id": [
+        "K51004",
+        "CTRL_WAIT_10000ms",
+        "CTRL_RECHECK_MEMS_power_status_off",
+        "K51003"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-026": {
+      "description": "星敏重启",
+      "instruction_id": [
+        "K51006",
+        "CTRL_WAIT_10000ms",
+        "CTRL_RECHECK_StarTrackerl_power_status_off",
+        "K51005"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-027": {
+      "description": "动量轮开机异常",
+      "instruction_id": [
+        "K51007",
+        "CTRL_WAIT_10000ms",
+        "CTRL_RECHECK_error",
+        "K50004"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-028": {
+      "description": "动量轮转速设置异常-can异常-重发指令",
+      "instruction_id": [
+        "K53029"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-029": {
+      "description": "动量轮转速设置异常-重启动量轮",
+      "instruction_id": [
+        "K51008",
+        "CTRL_WAIT_10000ms",
+        "CTRL_RECHECK_MomentumWheel_power_status_off",
+        "K51007",
+        "CTRL_WAIT_3000ms",
+        "K53029"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    },
+    "RP-030": {
+      "description": "动量轮遥测异常-重启动量轮",
+      "instruction_id": [
+        "K51008",
+        "CTRL_WAIT_10000ms",
+        "CTRL_RECHECK_MomentumWheel_power_status_off",
+        "K51007"
+      ],
+      "domain": "business",
+      "executor": "repair_container",
+      "timeout_ms": 10000,
+      "max_retries": 2,
+      "retry_backoff": {
+        "initial_ms": 1000,
+        "max_ms": 5000
+      }
+    }
+  }
+}

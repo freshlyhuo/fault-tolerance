@@ -32,10 +32,8 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
 
 	// 加载业务层故障树
 	businessLoader := diagnosisConfig.NewLoader("./fault-diagnosis/configs/fault_tree_business.json")
@@ -54,17 +52,30 @@ func main() {
 		logger.Fatal("创建业务层诊断引擎失败", zap.Error(err))
 	}
 
-	// 创建故障修复引擎
-	recoveryState := recovery.NewInMemoryStateManager()
-	recoveryEngine := recovery.NewEngine(recoveryState, recovery.NewEngineConfig{
-		QueueSize: 200,
-		Timeout:   20 * time.Second,
-	})
-	recoveryStore := recovery.NewRuntimeStore()
-	// 业务层故障码统一走创建服务
-	recoveryEngine.RegisterAction("CJB-RG-ZD-3", recovery.NewStartContainerAction(recoveryStore))
-	recoveryEngine.RegisterPrefixAction("YW", recovery.NewStartContainerAction(recoveryStore))
-	recoveryEngine.Start(ctx)
+	// 创建状态管理器，供健康监测入库和故障修复 CTRL_RECHECK 查询共用。
+	stateManager, err := healthState.NewStateManager()
+	if err != nil {
+		logger.Fatal("创建状态管理器失败", zap.Error(err))
+	}
+	defer stateManager.Close()
+	fmt.Println("  ✓ 状态管理器已创建")
+
+	recoveryRegistry, err := recovery.LoadPlanRegistry("")
+	if err != nil {
+		logger.Fatal("加载故障修复方案失败", zap.Error(err))
+	}
+	recoverySvc := recovery.NewRecoveryServiceWithHealthMonitorState(
+		recoveryRegistry,
+		recovery.NewVSOAContainerClientFromEnv(),
+		stateManager,
+		recovery.NewInMemoryStateManager(),
+		recovery.RecoveryServiceConfig{QueueSize: 200},
+	)
+	recoverySvc.Start(ctx)
+
+	// 创建故障修复接收层（内部对象输入，不走 HTTP），归一化后进入 RecoveryService 执行队列。
+	recoveryReceive := recovery.NewReceiveService(recoverySvc.ReceiveConfig(200))
+	recoveryReceive.Start(ctx)
 
 	// 设置诊断回调
 	businessEngine.SetCallback(func(diagnosis *diagnosisModels.DiagnosisResult) {
@@ -80,7 +91,7 @@ func main() {
 			fmt.Println(strings.Repeat("═", 70))
 			printDiagnosis(diagnosis)
 		}
-		_ = recoveryEngine.Submit(convertToRecoveryDiagnosis(diagnosis))
+		_ = recoveryReceive.Submit(convertToRecoveryDiagnosis(diagnosis))
 	})
 
 	// 创建告警接收器
@@ -97,28 +108,19 @@ func main() {
 	}
 	defer businessReceiver.Stop()
 
-	// 创建状态管理器
-	stateManager, err := healthState.NewStateManager()
-	if err != nil {
-		logger.Fatal("创建状态管理器失败", zap.Error(err))
-	}
-	defer stateManager.Close()
-	fmt.Println("  ✓ 状态管理器已创建")
-
 	// 创建告警接收器包装器（集成故障诊断）
 	businessWrapper := diagnosisReceiver.NewReceiverWrapper(businessReceiver)
 
-	// 创建业务层调度器和接收器
+	// 创建业务层调度器
 	businessDispatcher := healthBusiness.NewDispatcher(stateManager)
 	businessDispatcher.SetDiagnosisReceiver(businessWrapper)
-	businessRecv := healthBusiness.NewReceiver(businessDispatcher)
-	go businessRecv.Start(ctx)
 	fmt.Println("  ✓ 业务层调度器已创建")
 
 	// ========== 场景 1：蓄电池和母线电压异常 ==========
 	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("1. 业务层故障模拟测试（场景1）")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
 
 	runBusinessScenario3(ctx, businessDispatcher)
 
@@ -134,8 +136,7 @@ func main() {
 func runBusinessScenario3(ctx context.Context, dispatcher *healthBusiness.Dispatcher) {
 	fmt.Println("\n[业务层] 场景 1: 蓄电池和母线电压异常 (应触发故障)\t")
 	dispatcher.HandleBusinessMetrics(ctx, &healthModel.BusinessMetrics{
-		ComponentType: 0x03,
-		Timestamp:     time.Now().Unix(),
+		Timestamp: time.Now().Unix(),
 		Data: &healthModel.PowerMetrics{
 			BatteryVoltage: 19.0,
 			BusVoltage:     19.0,
@@ -147,8 +148,7 @@ func runBusinessScenario3(ctx context.Context, dispatcher *healthBusiness.Dispat
 	time.Sleep(1 * time.Second)
 	fmt.Println("\n[业务层] 场景 1: 1s 后恢复正常数据")
 	dispatcher.HandleBusinessMetrics(ctx, &healthModel.BusinessMetrics{
-		ComponentType: 0x03,
-		Timestamp:     time.Now().Unix(),
+		Timestamp: time.Now().Unix(),
 		Data: &healthModel.PowerMetrics{
 			BatteryVoltage: 26.0,
 			BusVoltage:     26.0,

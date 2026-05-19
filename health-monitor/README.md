@@ -1,8 +1,8 @@
-# Health Monitor - 航天器健康监测系统
+# Health Monitor - 健康监测模块
 
-## 系统概述
+## 模块概述
 
-完整的健康监测系统，支持业务层和微服务层的指标监控、状态管理、告警生成（阈值+趋势分析）。
+完整的健康监测模块，支持业务层和微服务层的指标监控、状态管理、告警生成。
 
 ## 核心功能
 
@@ -15,14 +15,7 @@
 ### 2. 状态管理
 - **实时状态**: 内存 Map，100ns 查询
 - **历史数据**: Ring Buffer (600条/指标)，10μs 查询
-- **持久化**: BoltDB 快照，每分钟保存
 
-### 3. 告警生成
-- **阈值告警**: 已发生故障 (Critical)
-- **趋势告警**: 预测性预警 (Warning)
-  - CPU/内存持续上升
-  - 容器频繁重启
-  - 业务校验失败率上升
 
 ## 项目结构
 
@@ -71,56 +64,6 @@ health-monitor/
 └── go.mod
 ```
 
-## 快速开始
-
-### 1. 运行完整集成演示
-
-```bash
-cd cmd/integration_demo
-go run main.go
-```
-
-**演示内容**:
-- 初始化 StateManager
-- 业务层报文解析和告警
-- 微服务层指标采集和告警
-- 状态查询和历史数据分析
-- 持久化快照
-
-### 2. 运行趋势分析演示
-
-```bash
-cd cmd/trend_demo
-go run main.go
-```
-
-**演示场景**:
-1. CPU 持续上升趋势 (60% → 75%)
-2. 内存持续增长趋势 (50% → 88%)
-3. 容器频繁重启 (每3次采样重启1次)
-4. 业务校验失败率上升 (1% → 15%)
-
-**预期输出**:
-```
-========== 场景1: CPU持续上升趋势 ==========
-模拟节点 node-cpu-trend 的CPU使用率持续上升...
-  [01] CPU: 60.0%
-  [02] CPU: 62.5%
-  ...
-  [12] CPU: 87.5%
-
-执行趋势分析...
-========== 告警事件 ==========
-
-【警告告警】共 1 个:
-  [TREND-NODE-CPU-node-cpu-trend-xxx] Node-CPU-Trend
-    故障码: TREND_CPU_INCREASE
-    来源: node:node-cpu-trend
-    消息: CPU使用率持续上升，当前87.5%，变化率2.8%
-    指标值: 87.50
-    预测: 可能在未来3分钟内达到90%
-```
-
 ## 核心组件说明
 
 ### StateManager (状态管理器)
@@ -147,32 +90,6 @@ history := sm.QueryHistory(state.MetricTypeNode, "node-001", 5*time.Minute)
 sm.SaveSnapshot()
 ```
 
-### TrendAnalyzer (趋势分析器)
-
-通过历史数据预测未来故障:
-
-```go
-// 自动创建 (在 NewGeneratorWithStateManager 中)
-analyzer := alert.NewTrendAnalyzer(sm)
-
-// 分析节点趋势
-alerts := analyzer.AnalyzeNodeTrends(ctx, "node-001")
-// 返回: CPU上升、内存上升等趋势告警
-
-// 分析容器趋势
-alerts := analyzer.AnalyzeContainerTrends(ctx, "container-001")
-// 返回: 重启频率异常等告警
-
-// 分析服务趋势
-alerts := analyzer.AnalyzeServiceTrends(ctx, "service-001")
-// 返回: 业务校验失败率上升等告警
-```
-
-**趋势判断参数**:
-- `trendWindowSize`: 10个数据点
-- `trendThreshold`: 10% 变化率
-- `continuousCount`: 连续3次上升/下降
-- `lookbackDuration`: 回溯5分钟历史
 
 ### Generator (告警生成器)
 
@@ -249,9 +166,8 @@ Alert:
 ```yaml
 # config/config.yaml
 state_manager:
-  etcd_endpoints: ["localhost:2379"]  # etcd 集群地址，留空则纯内存模式
+  mode: "memory"                       # 固定内存缓存模式（不依赖etcd）
   ring_buffer_size: 600
-  snapshot_interval: "1m"
   history_retention: "10m"
 
 trend_analyzer:
@@ -268,9 +184,306 @@ alert:
     - database
 ```
 
+## 硬件指标发布订阅
+
+健康监测作为 VSOA 客户端订阅硬件发布的参数，默认测试地址为 `127.0.0.1:3002`，默认 URL 为 `/hardware/metrics`。
+
+先启动测试发布端:
+
+```bash
+go run ./cmd/hardware_pubsub_server -addr 127.0.0.1:3002 -url /hardware/metrics
+```
+
+再启动健康监测:
+
+```bash
+go run ./cmd/monitor -enable-config-rpc=false -hardware-pubsub-addr 127.0.0.1:3002 -hardware-pubsub-url /hardware/metrics
+```
+
+发布端发送 JSON，客户端优先读取 VSOA `Data`，为空时读取 `Param`:
+
+```json
+{
+  "component": "momentum_wheel",
+  "timestamp": 1714032000,
+  "values": {
+    "SendCmd_K53029": 1,
+    "WheelSpeedX": 125,
+    "WheelSpeedY": 100,
+    "WheelSpeedZ": 100,
+    "MomentumWheel_No_telemetry_count": 1,
+    "MomentumWheel_CommandSeriaPortCount": 1
+  }
+}
+```
+
+当前客户端支持 `power`、`thermal`、`comm`、`momentum_wheel`、`attitude_orbit_control` 组件，并将订阅数据转成现有 `BusinessMetrics` 后进入 `StateManager` 和告警生成链路。
+
+# 业务层告警处理流程
+
+## 架构概览
+
+```
+原始报文 → Receiver.ParsePacket() → BusinessMetrics (结构化数据)
+                                            ↓
+                            Dispatcher.HandleBusinessMetrics()
+                                            ↓
+                            Generator.ProcessBusinessMetrics()
+                                            ↓
+                            Threshold 阈值检查函数
+                                            ↓
+                            AlertEvent[] (告警事件)
+                                            ↓
+                            Generator.outputAlerts() → 直接输出
+```
+
+## 数据流说明
+
+### 1. Receiver 解析报文
+- **输入**: 原始二进制报文
+- **输出**: `BusinessMetrics` 结构体
+- **职责**: 将报文解析为对应的组件指标结构体
+
+```go
+metrics, err := receiver.ParsePacket(packet)
+// metrics.Data 包含具体组件的指标结构体
+// 例如: *PowerMetrics, *ThermalMetrics, *CommMetrics 等
+```
+
+### 2. Dispatcher 分发指标
+- **输入**: `BusinessMetrics` 结构体
+- **输出**: 无（将指标转发给 Generator）
+- **职责**: 接收解析后的指标，转发给告警生成器
+
+```go
+dispatcher.HandleBusinessMetrics(ctx, metrics)
+// 内部调用: generator.ProcessBusinessMetrics(ctx, metrics)
+```
+
+### 3. Generator 生成告警
+- **输入**: `BusinessMetrics` 结构体
+- **输出**: 直接输出告警到控制台（可扩展到其他输出）
+- **职责**:
+  - 根据组件类型调用对应的阈值检查函数
+  - 对告警进行去重、分类
+  - 输出告警事件
+
+```go
+generator.ProcessBusinessMetrics(ctx, bm)
+// 内部调用 threshold 检查函数
+// 直接输出告警，不返回给 dispatcher
+```
+
+### 4. Threshold 阈值检查
+- **输入**: 具体组件的指标结构体（如 `*PowerMetrics`）
+- **输出**: `[]*AlertEvent` 告警事件列表
+- **职责**: 根据 metrics.md 中定义的阈值判断是否异常
+
+```go
+alerts := CheckPowerThresholds(powerMetrics)
+// 返回所有超过阈值的告警
+```
+
+# 微服务层告警集成流程
+
+## 架构设计
+
+```
+微服务监控数据采集
+       ↓
+Fetcher (GatherRawMetrics)
+       ↓
+Extractor (Extract)
+       ↓
+Dispatcher (RunOnce)
+       ↓
+alert.Generator (ProcessMicroserviceMetrics)
+       ↓
+alert.Threshold (CheckNodeThresholds/CheckContainerThresholds/CheckServiceThresholds)
+       ↓
+AlertEvent 生成与输出
+```
+
+## 数据流程
+
+### 1. 采集阶段
+- **Fetcher**: 从ECSM API采集原始指标数据
+- **输出**: 原始JSON数据
+
+### 2. 提取阶段
+- **Extractor**: 解析原始数据,提取结构化指标
+- **输出**: `MicroServiceMetricsSet` 包含:
+  - `[]NodeMetrics` - 节点指标列表
+  - `[]ContainerMetrics` - 容器指标列表
+  - `[]ServiceMetrics` - 服务指标列表
+
+### 3. 派发阶段
+- **Dispatcher**: 统一派发指标到告警模块
+- **功能**:
+  - 调用 `generator.ProcessMicroserviceMetrics()`
+  - 后续可扩展: StateManager存储、数据库持久化、可视化推送
+
+### 4. 告警生成阶段
+- **Generator**: 处理微服务指标,生成告警事件
+- **流程**:
+  1. 遍历所有节点指标 → `CheckNodeThresholds()`
+  2. 遍历所有容器指标 → `CheckContainerThresholds()`
+  3. 遍历所有服务指标 → `CheckServiceThresholds()`
+  4. 收集所有告警事件
+  5. 告警去重 (`deduplicateAlerts`)
+  6. 按严重程度分类输出
+
+### 5. 阈值检查阶段
+根据 `microservice/metrics.md` 中定义的阈值进行判断:
+
+#### 节点指标检查 (CheckNodeThresholds)
+| 指标 | 正常阈值 | 故障判据 | 故障编号 | 严重程度 |
+|------|----------|----------|----------|----------|
+| 节点状态 | online | offline | MS-NO-FL-1 | Critical |
+| CPU使用率 | ≤75% | >85% | MS-NO-FL-2 | Warning |
+| 内存使用率 | ≤80% | >90% | MS-NO-FL-3 | Critical |
+| 磁盘使用率 | ≤80% | >90% | MS-NO-FL-4 | Critical |
+| 容器运行比例 | ≥0.9 | <0.8 | MS-NO-FL-6 | Warning |
+
+#### 容器指标检查 (CheckContainerThresholds)
+| 指标 | 正常阈值 | 故障判据 | 故障编号 | 严重程度 |
+|------|----------|----------|----------|----------|
+| 部署状态 | success | failure | MS-CN-FL-1 | Critical |
+| 启动状态 | running | exited/paused | MS-CN-FL-2 | Critical/Warning |
+| 运行时长 | ≥300s | <60s | MS-CN-FL-3 | Warning |
+| CPU使用率 | ≤80% | >90% | MS-CN-FL-5 | Warning |
+| 内存使用率 | ≤85% | >90% | MS-CN-FL-5 | Critical |
+| 磁盘占用率 | ≤80% | >90% | MS-CN-FL-6 | Warning |
+
+#### 服务指标检查 (CheckServiceThresholds)
+| 指标 | 正常阈值 | 故障判据 | 故障编号 | 严重程度 |
+|------|----------|----------|----------|----------|
+| 健康状态 | TRUE | FALSE | MS-SV-FL-1 | Critical |
+| 节点数量 | ≥1 | 0 | MS-SV-FL-5 | Critical |
+| 容器运行比例 | ≥0.9 | <0.8 | MS-SV-FL-4 | Warning |
+
+### 6. 告警输出阶段
+- **输出格式**: 控制台打印,按严重程度分类
+  - 【严重告警】Critical
+  - 【警告告警】Warning
+  - 【信息告警】Info
+- **告警信息包含**:
+  - AlertID: 唯一标识
+  - Type: 告警类型
+  - Severity: 严重程度
+  - Source: 来源 (节点/容器/服务ID)
+  - Message: 描述信息
+  - FaultCode: 故障编号
+  - MetricValue: 指标值
+  - Timestamp: 时间戳
+
+## 主要函数说明
+
+以下为 health-monitor 模块主链路中的核心函数说明，统一包含：函数名、URL（无则写无）、功能、工作流程、功能解释。
+
+### 启动与调度层
+
+| 函数名 | URL | 功能 | 工作流程（简版） | 功能解释 |
+|------|-----|------|------------------|----------|
+| `main` | 无 | 启动健康监控系统 | 初始化参数和上下文 -> 初始化 StateManager -> 启动业务层与微服务层 -> 监听退出信号 | 系统总入口，串联两条监控链路。 |
+| `microServiceMonitorLoop` | 无 | 周期驱动微服务采集 | 立即采集一次 -> ticker 周期触发 -> 调用 `collectAndReport` | 微服务监控的定时执行器。 |
+| `collectAndReport` | 无 | 执行单次采集并打印结果 | 调用 `Dispatcher.RunOnce` -> 记录成功/失败与耗时 | 将一次采集过程封装为标准动作，便于循环调用。 |
+| `businessTestLoop` | 无 | 测试模式周期发报文 | 立即发一次 -> ticker 周期触发 -> 调用 `sendTestPackets` | 用于联调验证业务层解析和告警链路。 |
+| `sendTestPackets` | 无 | 发送模拟业务报文 | 构造供电/热控/通信报文 -> 调用 `Receiver.Submit` 投递 | 提供可控输入，验证阈值触发与恢复场景。 |
+
+### 业务层链路
+
+| 函数名 | URL | 功能 | 工作流程（简版） | 功能解释 |
+|------|-----|------|------------------|----------|
+| `Receiver.Submit` | 无 | 接收业务二进制报文并入队 | 校验报文长度 -> 写入 `inputChan` | 业务层数据入口，做最基础的合法性检查。 |
+| `Receiver.Start` | 无 | 启动业务报文监听循环 | 监听 `inputChan/ctx/stopChan` -> 解析报文 -> 分发给 Dispatcher | 将收包、解析、分发串联为实时流水线。 |
+| `Receiver.ParsePacket` | 无 | 解析业务报文为结构化指标 | 读取组件类型和长度 -> 按组件调用 `parseXxx` -> 生成 `BusinessMetrics` | 业务侧核心解析器，为阈值判断提供标准输入。 |
+| `Dispatcher.HandleBusinessMetrics` | 无 | 处理业务层指标 | 写入 `StateManager` -> 调用 `Generator.ProcessBusinessMetrics` | 业务指标统一派发点，连接存储与告警。 |
+
+### 微服务采集链路
+
+| 函数名 | URL | 功能 | 工作流程（简版） | 功能解释 |
+|------|-----|------|------------------|----------|
+| `Fetcher.ListNode` | `/api/v1/node` | 分页获取节点列表 | 组装分页参数 -> GET 请求 -> 解析返回 | 节点基础清单来源。 |
+| `Fetcher.ListContainerByNodePage` | `/api/v1/container/node` | 按节点分页获取容器列表 | 组装 `nodeIds[]` 和分页参数 -> GET 请求 -> 解析返回 | 容器数据采集关键入口。 |
+| `Fetcher.ListService` | `/api/v1/service` | 分页获取服务列表 | 组装分页参数 -> GET 请求 -> 解析返回 | 服务清单来源。 |
+| `Fetcher.ListNodeStatus` | `/api/v1/node/status` | 批量获取节点状态 | 组装 `ids[]` 参数 -> GET 请求 -> 解析 `nodes` | 获取节点在线状态和资源状态。 |
+| `Fetcher.ListContainerStatus` | `/api/v1/container/{taskID}` | 获取容器详细状态 | 遍历容器逐个请求 -> 解析详情 -> 汇总结果 | 用详情补齐容器运行时状态。 |
+| `Fetcher.ListServiceStatus` | `/api/v1/service/{id}` | 获取服务详细状态 | 遍历服务逐个请求 -> 解析详情 -> 汇总结果 | 获取服务健康与实例状态。 |
+| `Fetcher.GatherRawMetrics` | 组合调用：`/api/v1/node`、`/api/v1/node/status`、`/api/v1/container/node`、`/api/v1/container/{taskID}`、`/api/v1/service`、`/api/v1/service/{id}` | 统一采集全部原始指标 | 依次采集 nodes/containers/services -> 组装 `RawMetrics` 返回 | 微服务采集总入口。 |
+| `Extractor.Extract` | 无 | 原始指标标准化 | 调用 `ExtractNodeMetrics`、`ExtractContainerMetrics`、`ExtractServiceMetrics` | 将采集结果转换为统一的 `MicroServiceMetricsSet`。 |
+| `Dispatcher.RunOnce` | 无 | 执行一轮完整微服务监控 | `GatherRawMetrics` -> `Extract` -> 保存状态 -> 阈值告警 | 微服务链路单次闭环入口。 |
+
+### 告警与阈值链路
+
+| 函数名 | URL | 功能 | 工作流程（简版） | 功能解释 |
+|------|-----|------|------------------|----------|
+| `Generator.ProcessBusinessMetrics` | 无 | 生成业务层告警 | 按组件类型调用阈值检查 -> 汇总告警 -> `outputAlerts` | 业务层告警主入口。 |
+| `Generator.ProcessMicroserviceMetrics` | 无 | 生成微服务层告警 | 遍历 node/container/service -> 阈值检查 -> `outputAlerts` | 微服务层告警主入口。 |
+| `Generator.outputAlerts` | 无 | 输出并下发告警 | 去重 -> 过滤 firing 输出 -> 可选发送诊断模块 | 告警统一出口。 |
+| `CheckPowerThresholdsWithState` | 无 | 电源阈值检查（支持恢复） | 加载阈值配置 -> 比较电压/电流 -> 状态变更触发告警 | 电源类异常与恢复判定核心。 |
+| `CheckNodeThresholdsWithState` | 无 | 节点阈值检查（支持恢复） | 检查在线状态、CPU、内存、磁盘 -> 生成告警 | 节点健康判定核心。 |
+| `CheckContainerThresholdsWithState` | 无 | 容器阈值检查（支持恢复） | 检查部署状态、CPU、内存、磁盘 -> 生成告警 | 容器稳定性判定核心。 |
+| `CheckServiceThresholdsWithState` | 无 | 服务阈值检查（支持恢复） | 检查健康状态和在线实例数 -> 生成告警 | 服务可用性判定核心。 |
+
+### 状态与配置层
+
+| 函数名 | URL | 功能 | 工作流程（简版） | 功能解释 |
+|------|-----|------|------------------|----------|
+| `NewStateManager` | 无 | 初始化状态管理器 | 创建 latest/history/alert 三类内存结构 -> 返回管理器 | 状态中心初始化入口。 |
+| `StateManager.UpdateMetric` | 无 | 更新实时状态并追加历史 | 时间戳对齐 -> 更新最新状态 -> 追加 RingBuffer 历史 | 指标写入统一入口。 |
+| `StateManager.GetLatestState` | 无 | 查询指标最新状态 | 通过 `metricType:id` 键读取最新状态映射 | 提供低延迟实时查询。 |
+| `StateManager.QueryHistory` | 无 | 查询窗口历史数据 | 定位指标 RingBuffer -> 按时间窗口过滤返回 | 支持趋势分析与回溯。 |
+| `GetThresholdConfig` | 无 | 加载阈值配置 | 初始化默认值 -> 读取 JSON 覆盖 -> 进程内缓存复用 | 阈值配置统一入口，保障默认可用。 |
+
+
+## 主要变量与数据结构
+
+以下内容用于快速理解 health-monitor 模块的数据组织方式，分为“主要变量（含常量）”和“主要数据结构”。
+
+### 主要变量（含常量）
+
+| 名称 | 所在位置 | 类型 | 作用 |
+|------|----------|------|------|
+| `HistoryRetention` | `pkg/state/state_manager.go` | `time.Duration` | 历史数据窗口保留时长基线（当前为10分钟）。 |
+| `RingBufferSize` | `pkg/state/state_manager.go` | `int` | 每个指标的环形缓冲区容量（当前600条）。 |
+| `latestStates` | `StateManager` | `map[string]Metric` | 保存每个指标的最新状态，支撑低延迟查询。 |
+| `historyBuffers` | `StateManager` | `map[string]*RingBuffer` | 保存每个指标的历史窗口数据。 |
+| `alertStates` | `StateManager` | `map[string]bool` | 记录告警当前状态（firing/resolved），用于去重与恢复判断。 |
+| `stopChan` | `StateManager`/`Receiver` | `chan struct{}` | 协程停止信号，实现优雅退出。 |
+| `inputChan` | `Receiver` | `chan []byte` | 业务层原始报文输入队列。 |
+| `thresholdOnce` | `pkg/config/thresholds_loader.go` | `sync.Once` | 确保阈值配置只初始化一次。 |
+| `thresholdCfg` | `pkg/config/thresholds_loader.go` | `*ThresholdConfig` | 进程内缓存阈值配置。 |
+| `CompRunMgr`...`CompEPS` | `pkg/business/receiver.go` | `const` | 业务层组件类型编号，驱动报文解析分发。 |
+| `AlertStatusFiring`/`AlertStatusResolved` | `pkg/models/alert.go` | `const` | 告警状态枚举值。 |
+| `MetricTypeNode`/`MetricTypeContainer`/`MetricTypeService`/`MetricTypeBusiness` | `pkg/state/types.go` | `const` | 状态管理中的指标类型标签。 |
+| `BaseURL` | `SimpleHTTPClient` | `string` | 微服务采集 API 的基础地址。 |
+| `Client` | `SimpleHTTPClient` | `*http.Client` | 发起 ECSM HTTP 请求的客户端（含超时）。 |
+| `HM_THRESHOLD_CONFIG` | 环境变量 | `string` | 自定义阈值配置路径（优先级最高）。 |
+
+### 主要数据结构
+
+| 数据结构 | 所在位置 | 核心字段 | 说明 |
+|----------|----------|----------|------|
+| `MicroServiceMetricsSet` | `pkg/models/metrics.go` | `NodeMetrics`、`ContainerMetrics`、`ServiceMetrics` | 微服务层统一指标聚合对象。 |
+| `BusinessMetrics` | `pkg/models/metrics.go` | `Timestamp`、`Data` | 业务层指标统一封装，按 `Data` 的具体指标类型路由。 |
+| `NodeMetrics` | `pkg/models/metrics.go` | `ID`、`Status`、`CPUUsage`、内存/磁盘字段 | 节点监控指标模型。 |
+| `ContainerMetrics` | `pkg/models/metrics.go` | `ID`、`DeployStatus`、`CPUUsage`、内存/磁盘字段 | 容器监控指标模型。 |
+| `ServiceMetrics` | `pkg/models/metrics.go` | `ID`、`Healthy`、`InstanceOnline`、`Status` | 服务监控指标模型。 |
+| `PowerMetrics`/`ThermalMetrics`/`CommMetrics`/`ActuatorMetrics` | `pkg/models/metrics.go` | 电压电流、温度、通信状态、动量轮转速等字段 | 业务层关键组件指标模型。 |
+| `AlertEvent` | `pkg/models/alert.go` | `AlertID`、`Status`、`Source`、`FaultCode`、`MetricValue` | 告警事件标准结构（触发与恢复共用）。 |
+| `StateManager` | `pkg/state/state_manager.go` | `latestStates`、`historyBuffers`、`alertStates` | 状态中心，负责实时状态、历史窗口与告警状态管理。 |
+| `RingBuffer`/`HistoryEntry` | `pkg/state/state_manager.go` | `head`、`tail`、`data` / `Timestamp`、`Data` | 历史数据窗口缓存的底层结构。 |
+| `Metric` 接口及 `NodeMetric`/`ContainerMetric`/`ServiceMetric`/`BusinessMetric` | `pkg/state/types.go` | `GetID`、`GetType`、`GetTimestamp`、`GetData` | 统一指标抽象与包装层，便于状态管理通用处理。 |
+| `ThresholdConfig` | `pkg/config/thresholds_loader.go` | `Power`、`Thermal`、`Comm`、`Node`、`Container`、`Service` | 阈值配置总模型，支持默认值与 JSON 覆盖。 |
+| `Fetcher`/`RawMetrics` | `pkg/microservice/fetcher.go` | `http` / `Nodes`、`Containers`、`Services` | 微服务采集器及其原始采集结果封装。 |
+| `NodeStatus`/`ContainerInfo`/`ServiceGet` | `pkg/microservice/*.go` | 运行状态、资源使用、部署状态等字段 | ECSM API 返回对象的原始映射结构。 |
+
+
+
 ## 扩展功能
 
-### 1. 添加新的趋势分析指标
+### 1. 添加趋势分析指标
 
 ```go
 // 在 trend.go 中添加
@@ -312,14 +525,6 @@ func (sm *StateManager) ExportMetrics() {
 }
 ```
 
-## 文档
-
-- [完整集成架构](INTEGRATION.md) - 数据流、组件交互、代码变更
-- [趋势分析详解](pkg/alert/TREND_ANALYSIS.md) - 算法原理、使用示例
-- [状态管理使用](pkg/state/USAGE.md) - StateManager 完整文档
-- [业务层告警流程](pkg/business/ALERT_FLOW.md)
-- [微服务层集成](pkg/microservice/ALERT_INTEGRATION.md)
-
 ## 常见问题
 
 ### Q: 趋势分析会不会产生很多误报？
@@ -340,9 +545,8 @@ A: Ring Buffer 固定大小:
 ### Q: 程序崩溃后数据会丢失吗？
 
 A: 取决于存储模式:
-- **纯内存模式**: 崩溃后数据全部丢失
-- **etcd 模式**: Ring Buffer 丢失最近1分钟，历史快照保存在 etcd，重启后自动恢复
-- 建议生产环境使用 etcd 模式
+- 当前实现为**纯内存缓存模式**，进程重启后缓存数据会丢失
+- 如需持久化，可在后续版本增加外部存储适配层
 
 ### Q: 如何调整趋势分析的敏感度？
 
@@ -354,11 +558,3 @@ analyzer := &TrendAnalyzer{
     continuousCount:  5,   // 增加次数 = 降低敏感度
 }
 ```
-
-## 贡献
-
-欢迎提交 Issue 和 PR！
-
-## 许可证
-
-MIT License

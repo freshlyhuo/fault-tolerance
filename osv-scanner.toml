@@ -1,79 +1,115 @@
 # osv-scanner.toml
-
-# 忽略 IPv6 Hostname 验证漏洞
-[[IgnoredVulns]]
-id = "CVE-2025-47912"
-reason = "SylixOS SDK limited to 1.25.0, strictly internal network usage"
-
-# 忽略 Tar 文件解析漏洞
-[[IgnoredVulns]]
-id = "CVE-2025-58183"
-reason = "Application does not process untrusted tar files"
-
-# 忽略 ASN1/DER 内存耗尽漏洞
-[[IgnoredVulns]]
-id = "CVE-2025-58185"
-reason = "No external certificate parsing allowed"
-
-# 忽略 Cookie 解析漏洞
-[[IgnoredVulns]]
-id = "CVE-2025-58186"
-reason = "Service is not exposed to public web traffic"
-
-# ... 请根据扫描结果继续添加其他 CVE ID
-[[IgnoredVulns]]
-id = "CVE-2025-58187"
-reason = "Risk accepted due to platform constraints"
-# (继续添加列表中剩下的所有 CVE)
+# Repo-level ignore rules for Trunk's osv-scanner.
+# Note: Prefer upgrading Go runtime when possible.
 
 [[IgnoredVulns]]
 id = "CVE-2025-47910"
-reason = "Go stdlib outdated in SylixOS SDK: net/http bypass"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
 
 [[IgnoredVulns]]
 id = "CVE-2025-47912"
-reason = "Go stdlib outdated in SylixOS SDK: net/url IPv6 validation"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
 
 [[IgnoredVulns]]
 id = "CVE-2025-58183"
-reason = "Go stdlib outdated in SylixOS SDK: archive/tar allocation"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
 
 [[IgnoredVulns]]
 id = "CVE-2025-58185"
-reason = "Go stdlib outdated in SylixOS SDK: encoding/asn1 memory exhaustion"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
 
 [[IgnoredVulns]]
 id = "CVE-2025-58186"
-reason = "Go stdlib outdated in SylixOS SDK: net/http cookie limit"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
 
 [[IgnoredVulns]]
 id = "CVE-2025-58187"
-reason = "Go stdlib outdated in SylixOS SDK: crypto/x509 complexity"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
 
 [[IgnoredVulns]]
 id = "CVE-2025-58188"
-reason = "Go stdlib outdated in SylixOS SDK: crypto/x509 DSA panic"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
 
 [[IgnoredVulns]]
 id = "CVE-2025-58189"
-reason = "Go stdlib outdated in SylixOS SDK: crypto/tls ALPN"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
 
 [[IgnoredVulns]]
 id = "CVE-2025-61723"
-reason = "Go stdlib outdated in SylixOS SDK: encoding/pem complexity"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
 
 [[IgnoredVulns]]
 id = "CVE-2025-61724"
-reason = "Go stdlib outdated in SylixOS SDK: net/textproto CPU consumption"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
 
 [[IgnoredVulns]]
 id = "CVE-2025-61725"
-reason = "Go stdlib outdated in SylixOS SDK: net/mail CPU consumption"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "CVE-2025-61726"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
 
 [[IgnoredVulns]]
 id = "CVE-2025-61727"
-reason = "Go stdlib outdated in SylixOS SDK: crypto/x509 DNS constraints"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "CVE-2025-61728"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
 
 [[IgnoredVulns]]
 id = "CVE-2025-61729"
-reason = "Go stdlib outdated in SylixOS SDK: crypto/x509 resource consumption"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "CVE-2025-61730"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "CVE-2025-68121"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "CVE-2026-25679"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "CVE-2026-27139"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "CVE-2026-27142"
+reason = "Go stdlib pinned by target platform constraints; accepted temporarily while running in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "CVE-2025-47913"
+reason = "x/crypto version pinned by compatibility constraints; accepted temporarily in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "GHSA-v778-237x-gjrc"
+reason = "x/crypto version pinned by compatibility constraints; accepted temporarily in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "GHSA-45x7-px36-x8w8"
+reason = "x/crypto version pinned by compatibility constraints; accepted temporarily in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "GHSA-f6x5-jh6r-wrfv"
+reason = "x/crypto version pinned by compatibility constraints; accepted temporarily in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "GHSA-hcg3-q754-cr77"
+reason = "x/crypto version pinned by compatibility constraints; accepted temporarily in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "GHSA-j5w8-q4qc-rx2x"
+reason = "x/crypto version pinned by compatibility constraints; accepted temporarily in controlled/internal environment."
+
+[[IgnoredVulns]]
+id = "CVE-2025-47910"
+reason = "平台约束暂无法升级，临时接受风险"
+
+[[IgnoredVulns]]
+id = "GHSA-v778-237x-gjrc"
+reason = "x/crypto 版本受约束，临时接受风险"

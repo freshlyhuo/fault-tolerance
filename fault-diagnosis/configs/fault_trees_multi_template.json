@@ -1,0 +1,1568 @@
+{
+  "_meta": {
+    "active_version": "V1.2",
+    "active_checksum": "2B69E0C8",
+    "updated_at": "2026-04-07T14:30:00Z"
+  },
+  "fault_trees": [
+    {
+      "fault_tree_id": "TREE-001",
+      "description": "cjb加电异常故障",
+      "top_events": [
+        {
+          "event_id": "T1-TOP-001",
+          "name": "CJB-RG-ZD-1",
+          "description": "cjb加电异常故障",
+          "fault_code": "YW-RG-ZD-1",
+          "gate_type": "OR",
+          "children": ["T1-MID-001", "T1-MID-002"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T1-MID-001",
+          "recovery_plan_id": "RP-001",
+          "name": "CC/CV module malfunction",
+          "description": "cjb充放电单元CC/CV模块故障",
+          "gate_type": "AND",
+          "children": ["T1-EVT-001", "NOT-T1-EVT-002"]
+        },
+        {
+          "event_id": "T1-MID-002",
+          "recovery_plan_id": "RP-001",
+          "name": "Satellite DC module malfunction",
+          "description": "星务DC模块故障",
+          "gate_type": "AND",
+          "children": ["NOT-T1-EVT-001", "NOT-T1-EVT-002"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T1-EVT-001",
+          "name": "TMAN01050 current less than 1.2A",
+          "description": "TMAN01050 通用连接机构支架d-12V供电电流明显小于2.2A",
+          "alert_id": "YW-power-TMAN01050_Current"
+        },
+        {
+          "event_id": "T1-EVT-002",
+          "name": "TMAN0104612V_Voltage error",
+          "description": "TMAN01046 12V功率模块1电压不在13V左右",
+          "alert_id": "YW-power-TMAN0104612V_Voltage"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-002",
+      "description": "cjbCAN通信异常",
+      "top_events": [
+        {
+          "event_id": "T2-TOP-001",
+          "name": "CJB-RG-ZD-2",
+          "description": "cjbCAN通信异常",
+          "fault_code": "YW-RG-ZD-2",
+          "gate_type": "BASIC",
+          "children": ["T2-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T2-MID-001",
+          "recovery_plan_id": "RP-002",
+          "name": "cjbCAN communication error",
+          "description": "cjbCAN通信异常",
+          "gate_type": "BASIC",
+          "children": ["T2-EVT-001"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T2-EVT-001",
+          "name": "CAN communication no response",
+          "description": "CAN通信无应答",
+          "alert_id": "YW-comm-noresponse"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-003",
+      "description": "蓄电池、母线电压遥测异常",
+      "top_events": [
+        {
+          "event_id": "T3-TOP-001",
+          "name": "CJB-RG-ZD-3",
+          "description": "蓄电池、母线电压遥测异常",
+          "fault_code": "YW-RG-ZD-3",
+          "gate_type": "OR",
+          "children": ["T3-MID-002","T3-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T3-MID-001",
+          "name": "Battery and bus voltage abnormal",
+          "description": "蓄电池、母线电压异常",
+          "gate_type": "OR",
+          "children": ["T3-EVT-001","T3-EVT-002"]
+        },
+        {
+          "event_id": "T3-MID-002",
+          "recovery_plan_id": "RP-003",
+          "name": "Battery abnormal",
+          "description": "蓄电池异常",
+          "gate_type": "AND",
+          "children": ["T3-MID-001","NOT-T3-EVT-003"]
+        },
+        {
+          "event_id": "T3-MID-003",
+          "recovery_plan_id": "RP-004",
+          "name": "AD module exception",
+          "description": "AD模块异常",
+          "gate_type": "AND",
+          "children": ["T3-MID-001","T3-EVT-003"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T3-EVT-001",
+          "name": "TMEZD01095cjb_BatteryVoltage error",
+          "description": "TMEZD01095 cjb-蓄电池电压遥测超出[21,29.4]区间 ",
+          "alert_id": "YW-power-TMEZD01095cjb_BatteryVoltage"
+        },
+        {
+          "event_id": "T3-EVT-002",
+          "name": "TMEZD01096cjb_BusVoltage error",
+          "description": "TMEZD01096 cjb-母线电压遥测超出[21,29.4]区间",
+          "alert_id": "YW-power-TMEZD01096cjb_BusVoltage"
+        },
+        {
+          "event_id": "T3-EVT-003",
+          "name": "TMEZD01011 cjb_CPUVoltage error",
+          "description": "TMEZD01011 cjb-CPU板3.3V电压不在[3.1,3.5]V区间",
+          "alert_id": "YW-power-TMEZD01011cjb_CPUVoltage"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-004",
+      "description": "温度异常遥测异常",
+      "top_events": [
+        {
+          "event_id": "T4-TOP-001",
+          "name": "CJB-RG-ZD-4",
+          "description": "温度异常遥测异常",
+          "fault_code": "YW-RG-ZD-4",
+          "gate_type": "OR",
+          "children": ["T4-MID-001","T4-MID-002","T4-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T4-MID-001",
+          "name": "Temperature abnormal",
+          "description": "温度异常",
+          "gate_type": "OR",
+          "children": ["T4-EVT-001","T4-EVT-002","T4-EVT-003","T4-EVT-004","T4-EVT-005","T4-EVT-006","T4-EVT-007","T4-EVT-008","T4-EVT-009","T4-EVT-010","T4-EVT-011","T4-EVT-012"]
+        },
+        {
+          "event_id": "T4-MID-002",
+          "recovery_plan_id": "RP-005",
+          "name": "Thermal sensor acquisition circuit abnormal",
+          "description": "热敏采集电路异常",
+          "gate_type": "AND",
+          "children": ["T4-MID-001","T4-EVT-014"]
+        },
+        {
+          "event_id": "T4-MID-003",
+          "recovery_plan_id": "RP-004",
+          "name": "AD module exception",
+          "description": "AD模块异常",
+          "gate_type": "AND",
+          "children": ["T4-MID-001","T4-EVT-013"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T4-EVT-001",
+          "name": "TMEZD01066cjb_ThermalTemp error",
+          "description": "TMEZD01066 cjb-热控温度异常",
+          "alert_id": "YW-thermal-TMEZD01066cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-002",
+          "name": "TMEZD01067cjb_ThermalTemp error",
+          "description": "TMEZD01067 cjb-热控温度异常",
+          "alert_id": "YW-thermal-TMEZD01067cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-003",
+          "name": "TMEZD01068cjb_ThermalTemp error",
+          "description": "TMEZD01068 cjb-热控温度异常",
+          "alert_id": "YW-thermal-TMEZD01068cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-004",
+          "name": "TMEZD01069cjb_ThermalTemp error",
+          "description": "TMEZD01069 cjb-热控温度异常",
+          "alert_id": "YW-thermal-TMEZD01069cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-005",
+          "name": "TMEZD01070cjb_ThermalTemp error",
+          "description": "TMEZD01070 cjb-热控温度异常",
+          "alert_id": "YW-thermal-TMEZD01070cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-006",
+          "name": "TMEZD01071cjb_ThermalTemp error",
+          "description": "TMEZD01071 cjb-热控温度异常",
+          "alert_id": "YW-thermal-TMEZD01071cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-007",
+          "name": "TMEZD01072cjb_ThermalTemp error",
+          "description": "TMEZD01072 cjb-热控温度异常",
+          "alert_id": "YW-thermal-TMEZD01072cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-008",
+          "name": "TMEZD01073cjb_ThermalTemp error",
+          "description": "TMEZD01073 cjb-热控温度异常",
+          "alert_id": "YW-thermal-TMEZD01073cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-009",
+          "name": "TMEZD01074cjb_ThermalTemp error",
+          "description": "TMEZD01074 cjb-热控温度异常",
+          "alert_id": "YW-thermal-TMEZD01074cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-010",
+          "name": "TMEZD01075cjb_ThermalTemp error",
+          "description": "TMEZD01075 cjb-热控温度异常",
+          "alert_id": "YW-thermal-TMEZD01075cjb_ThermalTemp"
+        },
+        {
+          "event_id": "T4-EVT-011",
+          "name": "TMEZD01084_BatteryTemp1 error",
+          "description": "TMEZD01084 cjb-蓄电池温度异常",
+          "alert_id": "YW-thermal-TMEZD01084_BatteryTemp1"
+        },
+        {
+          "event_id": "T4-EVT-012",
+          "name": "TMEZD01085_BatteryTemp2 error",
+          "description": "TMEZD01085 cjb-蓄电池温度异常",
+          "alert_id": "YW-thermal-TMEZD01085_BatteryTemp2"
+        },
+        {
+          "event_id": "T4-EVT-013",
+          "name": "TMEZD01011 cjb_CPUVoltage error",
+          "description": "TMEZD01011 cjb-CPU板3.3V电压不在[3.1,3.5]V区间",
+          "alert_id": "YW-thermal-TMEZD01011cjb_CPUVoltage"
+        },
+        {
+          "event_id": "T4-EVT-014",
+          "name": "TMEZD01100cjb_ThermalRefVoltage error",
+          "description": "TMEZD01100 cjb-热敏基准电压不在[4.5,5.5]区间",
+          "alert_id": "YW-power-TMEZD01100cjb_ThermalRefVoltage"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-005",
+      "description": "平台热控开关打开异常",
+      "top_events": [
+        {
+          "event_id": "T5-TOP-001",
+          "name": "CJB-RG-ZD-5",
+          "description": "平台热控开关打开异常",
+          "fault_code": "YW-RG-ZD-5",
+          "gate_type": "OR",
+          "children": ["T5-MID-001", "T5-MID-002", "T5-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T5-MID-001",
+          "recovery_plan_id": "RP-006",
+          "name": "CAN command receive abnormal",
+          "description": "CAN指令接收异常",
+          "gate_type": "AND",
+          "children": ["T5-EVT-001","T5-EVT-003"]
+        },
+        {
+          "event_id": "T5-MID-002",
+          "recovery_plan_id": "RP-007",
+          "name": "AD module collect abnormal",
+          "description": "AD模块采集异常",
+          "gate_type": "AND",
+          "children": ["T5-EVT-002", "T5-EVT-003"]
+        },
+        {
+          "event_id": "T5-MID-003",
+          "recovery_plan_id": "RP-008",
+          "name": "Platform heater switch state abnormal",
+          "description": "OC指令异常",
+          "gate_type": "AND",
+          "children": ["NOT-T5-MID-001","NOT-T5-MID-002","T5-EVT-003"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T5-EVT-001",
+          "name": "TMEZD01004cjb_InstructionCount not increase",
+          "description": "TMEZD01004接收命令计数未增加",
+          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+        },
+        {
+          "event_id": "T5-EVT-002",
+          "name": "TMEZD01011cjb_CPUVoltage abnormal",
+          "description": "TMEZD01011 CPU板3.3V电压不在[3.1,3.5]V区间",
+          "alert_id": "YW-power-TMEZD01011cjb_CPUVoltage"
+        },
+        {
+          "event_id": "T5-EVT-003",
+          "name": "TMEZD01121_PlatformHeater is 0",
+          "description": "TMEZD01121 cjb-平台加热总开关状态为0与期望不符 ",
+          "alert_id": "YW-thermal-TMEZD01121_PlatformHeater"
+        }
+      ]
+    },
+     {
+      "fault_tree_id": "TREE-006",
+      "description": "电池热控开关打开异常",
+      "top_events": [
+        {
+          "event_id": "T6-TOP-001",
+          "name": "CJB-RG-ZD-6",
+          "description": "电池热控开关打开异常",
+          "fault_code": "YW-RG-ZD-6",
+          "gate_type": "OR",
+          "children": ["T6-MID-001", "T6-MID-002", "T6-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T6-MID-001",
+          "recovery_plan_id": "RP-009",
+          "name": "CAN command receive abnormal",
+          "description": "CAN指令接收异常",
+          "gate_type": "AND",
+          "children": ["T6-EVT-001","T6-EVT-003"]
+        },
+        {
+          "event_id": "T6-MID-002",
+          "recovery_plan_id": "RP-010",
+          "name": "AD module collect abnormal",
+          "description": "AD模块采集异常",
+          "gate_type": "AND",
+          "children": ["T6-EVT-002", "T6-EVT-003"]
+        },
+        {
+          "event_id": "T6-MID-003",
+          "recovery_plan_id": "RP-011",
+          "name": "Platform heater switch state abnormal",
+          "description": "OC指令异常",
+          "gate_type": "AND",
+          "children": ["NOT-T6-MID-002","NOT-T6-MID-002","T6-EVT-003"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T6-EVT-001",
+          "name": "TMEZD01004cjb_InstructionCount not increase",
+          "description": "TMEZD01004接收命令计数未增加",
+          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+        },
+        {
+          "event_id": "T6-EVT-002",
+          "name": "TMEZD01011cjb_CPUVoltage abnormal",
+          "description": "TMEZD01011 CPU板3.3V电压不在[3.1,3.5]V区间",
+          "alert_id": "YW-power-TMEZD01011cjb_CPUVoltage"
+        },
+        {
+          "event_id": "T6-EVT-003",
+          "name": "TMEZD01254 _PlatformHeater is 0",
+          "description": "TMEZD01254 cjb-蓄电池加热总开关状态为0与期望不符 ",
+          "alert_id": "YW-thermal-TMEZD01254_BatteryHeater"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-007",
+      "description": "平台加热带控制异常",
+      "top_events": [
+        {
+          "event_id": "T7-TOP-001",
+          "name": "CJB-RG-ZD-7",
+          "description": "平台加热带控制异常",
+          "fault_code": "YW-RG-ZD-7",
+          "gate_type": "OR",
+          "children": ["T7-MID-001", "T7-MID-002", "T7-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T7-MID-001",
+           "recovery_plan_id": "RP-006",
+          "name": "CAN command receive abnormal",
+          "description": "CAN指令接收异常",
+          "gate_type": "AND",
+          "children": ["T7-EVT-001","T7-EVT-004"]
+        },
+        {
+          "event_id": "T7-MID-002",
+          "recovery_plan_id": "RP-004",
+          "name": "AD module collect abnormal",
+          "description": "AD模块采集异常",
+          "gate_type": "AND",
+          "children": ["T7-EVT-002", "T7-EVT-004"]
+        },
+        {
+          "event_id": "T7-MID-003",
+          "recovery_plan_id": "RP-005",
+          "name": "Thermal sensor acquisition circuit abnormal",
+          "description": "热敏采集电路异常",
+          "gate_type": "AND",
+          "children": ["T7-EVT-003","T7-EVT-004"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T7-EVT-001",
+          "name": "TMEZD01004cjb_InstructionCount not increase",
+          "description": "TMEZD01004接收命令计数未增加",
+          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+        },
+        {
+          "event_id": "T7-EVT-002",
+          "name": "TMEZD01011cjb_CPUVoltage abnormal",
+          "description": "TMEZD01011 CPU板3.3V电压不在[3.1,3.5]V区间",
+          "alert_id": "YW-power-TMEZD01011cjb_CPUVoltage"
+        },
+        {
+          "event_id": "T7-EVT-003",
+          "name": "TMEZD01100cjb_ThermalRefVoltage error",
+          "description": "TMEZD01100 cjb-热敏基准电压不在[4.5,5.5]区间",
+          "alert_id": "YW-power-TMEZD01100cjb_ThermalRefVoltage"
+        },
+        {
+          "event_id": "T7-EVT-004",
+          "name": "PlatformThermalTemp abnormal",
+          "description": "平台热控未按照设定阈值进行热控 ",
+          "alert_id": "YW-thermal-PlatformThermalTemp"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-008",
+      "description": "蓄电池加热带控制异常",
+      "top_events": [
+        {
+          "event_id": "T8-TOP-001",
+          "name": "CJB-RG-ZD-8",
+          "description": "蓄电池加热带控制异常",
+          "fault_code": "YW-RG-ZD-8",
+          "gate_type": "OR",
+          "children": ["T8-MID-001", "T8-MID-002", "T8-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T8-MID-001",
+          "recovery_plan_id": "RP-009",
+          "name": "CAN command receive abnormal",
+          "description": "CAN指令接收异常",
+          "gate_type": "AND",
+          "children": ["T8-EVT-001","T8-EVT-004"]
+        },
+        {
+          "event_id": "T8-MID-002",
+          "recovery_plan_id": "RP-004",
+          "name": "AD module collect abnormal",
+          "description": "AD模块采集异常",
+          "gate_type": "AND",
+          "children": ["T8-EVT-002", "T8-EVT-004"]
+        },
+        {
+          "event_id": "T8-MID-003",
+          "recovery_plan_id": "RP-005",
+          "name": "Thermal sensor acquisition circuit abnormal",
+          "description": "热敏采集电路异常",
+          "gate_type": "AND",
+          "children": ["T8-EVT-003","T8-EVT-004"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T8-EVT-001",
+          "name": "TMEZD01004cjb_InstructionCount not increase",
+          "description": "TMEZD01004接收命令计数未增加",
+          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+        },
+        {
+          "event_id": "T8-EVT-002",
+          "name": "TMEZD01011cjb_CPUVoltage abnormal",
+          "description": "TMEZD01011 CPU板3.3V电压不在[3.1,3.5]V区间",
+          "alert_id": "YW-power-TMEZD01011cjb_CPUVoltage"
+        },
+        {
+          "event_id": "T8-EVT-003",
+          "name": "TMEZD01100cjb_ThermalRefVoltage error",
+          "description": "TMEZD01100 cjb-热敏基准电压不在[4.5,5.5]区间",
+          "alert_id": "YW-power-TMEZD01100cjb_ThermalRefVoltage"
+        },
+        {
+          "event_id": "T8-EVT-004",
+          "name": "BatteryThermalTemp abnormal",
+          "description": "蓄电池热控未按照设定阈值进行热控 ",
+          "alert_id": "YW-thermal-BatteryThermalTemp"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-009",
+      "description": "储箱热控开关打开异常",
+      "top_events": [
+        {
+          "event_id": "T9-TOP-001",
+          "name": "CJB-O2-ZD-1",
+          "description": "储箱热控开关打开异常",
+          "fault_code": "YW-O2-ZD-1",
+          "gate_type": "OR",
+          "children": ["T9-MID-001", "T9-MID-002", "T9-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T9-MID-001",
+          "recovery_plan_id": "RP-012",
+          "name": "CAN command receive abnormal",
+          "description": "CAN指令接收异常",
+          "gate_type": "AND",
+          "children": ["T9-EVT-001","T9-EVT-003"]
+        },
+        {
+          "event_id": "T9-MID-002",
+          "recovery_plan_id": "RP-013",
+          "name": "AD module collect abnormal",
+          "description": "AD模块采集异常",
+          "gate_type": "AND",
+          "children": ["T9-EVT-002", "T9-EVT-003"]
+        },
+        {
+          "event_id": "T9-MID-003",
+          "recovery_plan_id": "RP-014",
+          "name": "Platform heater switch state abnormal",
+          "description": "OC指令异常",
+          "gate_type": "AND",
+          "children": ["NOT-T9-MID-002","NOT-T9-MID-002","T9-EVT-003"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T9-EVT-001",
+          "name": "TMEZD01004cjb_InstructionCount not increase",
+          "description": "TMEZD01004接收命令计数未增加",
+          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+        },
+        {
+          "event_id": "T9-EVT-002",
+          "name": "TMEZD01011cjb_CPUVoltage abnormal",
+          "description": "TMEZD01011 CPU板3.3V电压不在[3.1,3.5]V区间",
+          "alert_id": "YW-power-TMEZD01011cjb_CPUVoltage"
+        },
+        {
+          "event_id": "T9-EVT-003",
+          "name": "TMEZD01115_TankHeater error",
+          "description": "TMEZD01115 cjb-储箱加热总开关状态与期望不符 ",
+          "alert_id": "YW-thermal-TMEZD01115_TankHeater"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-010",
+      "description": "储箱加热带控制异常",
+      "top_events": [
+        {
+          "event_id": "T10-TOP-001",
+          "name": "CJB-O2-ZD-2",
+          "description": "储箱加热带控制异常",
+          "fault_code": "YW-O2-ZD-2",
+          "gate_type": "OR",
+          "children": ["T10-MID-001", "T10-MID-002", "T10-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T10-MID-001",
+          "recovery_plan_id": "RP-012",
+          "name": "CAN command receive abnormal",
+          "description": "CAN指令接收异常",
+          "gate_type": "AND",
+          "children": ["T10-EVT-001","T10-EVT-004"]
+        },
+        {
+          "event_id": "T10-MID-002",
+          "recovery_plan_id": "RP-004",
+          "name": "AD module collect abnormal",
+          "description": "AD模块采集异常",
+          "gate_type": "AND",
+          "children": ["T10-EVT-002", "T10-EVT-004"]
+        },
+        {
+          "event_id": "T10-MID-003",
+          "recovery_plan_id": "RP-005",
+          "name": "Thermal sensor acquisition circuit abnormal",
+          "description": "热敏采集电路异常",
+          "gate_type": "AND",
+          "children": ["T10-EVT-003","T10-EVT-004"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T10-EVT-001",
+          "name": "TMEZD01004cjb_InstructionCount not increase",
+          "description": "TMEZD01004接收命令计数未增加",
+          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+        },
+        {
+          "event_id": "T10-EVT-002",
+          "name": "TMEZD01011cjb_CPUVoltage abnormal",
+          "description": "TMEZD01011 CPU板3.3V电压不在[3.1,3.5]V区间",
+          "alert_id": "YW-power-TMEZD01011cjb_CPUVoltage"
+        },
+        {
+          "event_id": "T10-EVT-003",
+          "name": "TMEZD01100cjb_ThermalRefVoltage error",
+          "description": "TMEZD01100 cjb-热敏基准电压不在[4.5,5.5]区间",
+          "alert_id": "YW-power-TMEZD01100cjb_ThermalRefVoltage"
+        },
+        {
+          "event_id": "T10-EVT-004",
+          "name": "TankThermalTemp abnormal",
+          "description": "储箱热控未按照设定阈值进行热控 ",
+          "alert_id": "YW-thermal-TankThermalTemp"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-011",
+      "description": "通信机开机失败",
+      "top_events": [
+        {
+          "event_id": "T11-TOP-001",
+          "name": "CJB-O2-CS-1",
+          "description": "通信机开机失败",
+          "fault_code": "YW-O2-CS-1",
+          "gate_type": "BASIC",
+          "children": ["T11-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T11-MID-001",
+          "recovery_plan_id": "RP-015",
+          "name": "Communication device failed to start",
+          "description": "通信机开机失败",
+          "gate_type": "AND",
+          "children": ["T11-EVT-001","T11-EVT-002"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T11-EVT-001",
+          "name": "Com_No_telemetry_count increase",
+          "description": "通信机串口无遥测",
+          "alert_id": "YW-comm-Com_No_telemetry_count"
+        },
+        {
+          "event_id": "T11-EVT-002",
+          "name": "TMEZD01247_LoadCurrent abnormal",
+          "description": "TMEZD01247 负载电流化小于0.1A",
+          "alert_id": "YW-power-TMEZD01247_LoadCurrent"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-012",
+      "description": "通信机遥测获取故障",
+      "top_events": [
+        {
+          "event_id": "T12-TOP-001",
+          "name": "CJB-O2-CS-2",
+          "description": "通信机遥测获取故障",
+          "fault_code": "YW-O2-CS-2",
+          "gate_type": "BASIC",
+          "children": ["T12-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T12-MID-001",
+          "recovery_plan_id": "RP-015",
+          "name": "Telemetry acquisition of communication device faults",
+          "description": "通信机遥测获取故障",
+          "gate_type": "AND",
+          "children": ["T12-EVT-001","T12-MID-002"]
+        },
+        {
+          "event_id": "T12-MID-002",
+          "name": "Communication device fault count increased",
+          "description": "通信机故障计数增加",
+          "gate_type": "OR",
+          "children": ["T12-EVT-002","T12-EVT-003","T12-EVT-004","T12-EVT-005"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T12-EVT-001",
+          "name": "Com_No_telemetry_count increase",
+          "description": "通信机串口无遥测",
+          "alert_id": "YW-comm-Com_No_telemetry_count"
+        },
+        {
+          "event_id": "T12-EVT-002",
+          "name": "TMEZD01046_CheckErrorCount abnormal",
+          "description": "TMEZD01046cjb-星务-串口0校验错计数增加",
+          "alert_id": "YW-comm-TMEZD01046_CheckErrorCount"
+        },
+        {
+          "event_id": "T12-EVT-003",
+          "name": "TMEZD01047_FrameHeaderErrorCount abnormal",
+          "description": "TMEZD01047cjb-星务-串口0帧头错误计数增加",
+          "alert_id": "YW-comm-TMEZD01047_FrameHeaderErrorCount"
+        },
+        {
+          "event_id": "T12-EVT-004",
+          "name": "TMEZD01048_FrameLengthErrorCount abnormal",
+          "description": "TMEZD01048cjb-星务-串口0帧长错误计数增加",
+          "alert_id": "YW-comm-TMEZD01048_FrameLengthErrorCount"
+        },
+        {
+          "event_id": "T12-EVT-005",
+          "name": "TMEZD01052_ResetCount abnormal",
+          "description": "TMEZD01052cjb-星务-串口0复位计数增加",
+          "alert_id": "YW-comm-TMEZD01052_ResetCount"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-013",
+      "description": "通信机发射机打开失败",
+      "top_events": [
+        {
+          "event_id": "T13-TOP-001",
+          "name": "CJB-O2-CS-3",
+          "description": "通信机发射机打开失败",
+          "fault_code": "YW-O2-CS-3",
+          "gate_type": "OR",
+          "children": ["T13-MID-001", "T13-MID-002", "T13-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T13-MID-001",
+          "recovery_plan_id": "RP-016",
+          "name": "CAN command receive abnormal",
+          "description": "CAN指令接收异常",
+          "gate_type": "AND",
+          "children": ["T13-EVT-001","T13-EVT-003"]
+        },
+        {
+          "event_id": "T13-MID-002",
+          "recovery_plan_id": "RP-017",
+          "name": "RS422 abnormal",
+          "description": "RS422异常",
+          "gate_type": "AND",
+          "children": ["T13-EVT-002", "T13-EVT-003"]
+        },
+        {
+          "event_id": "T13-MID-003",
+          "recovery_plan_id": "RP-017",
+          "name": "Communication device program abnormal",
+          "description": "通信机程序异常",
+          "gate_type": "AND",
+          "children": ["NOT-T13-MID-001","NOT-T13-MID-002","T13-EVT-003"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T13-EVT-001",
+          "name": "TMEZD01004cjb_InstructionCount not increase",
+          "description": "TMEZD01004接收命令计数未增加",
+          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+        },
+        {
+          "event_id": "T13-EVT-002",
+          "name": "TMEZD01150_ReceiveCTACount abnormal",
+          "description": "TMEZD01150cjb-通信机-空空遥控计数未增加",
+          "alert_id": "YW-comm-TMEZD01150_ReceiveCTACount"
+        },
+        {
+          "event_id": "T13-EVT-003",
+          "name": "TMEZD01155_SwitchState abnormal",
+          "description": "通信机-发射通道开关与期望不符",
+          "alert_id": "YW-comm-TMEZD01155_SwitchState"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-014",
+      "description": "通信机空空通信异常",
+      "top_events": [
+        {
+          "event_id": "T14-TOP-001",
+          "name": "CJB-O2-CS-4",
+          "description": "通信机空空通信异常",
+          "fault_code": "YW-O2-CS-4",
+          "gate_type": "BASIC",
+          "children": ["T14-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T14-MID-001",
+          "recovery_plan_id": "RP-018",
+          "name": "RF link abnormal",
+          "description": "射频链路异常",
+          "gate_type": "AND",
+          "children": ["T14-EVT-001","T14-EVT-002","T14-EVT-003","T14-MID-002"]
+        },
+        {
+          "event_id": "T14-MID-002",
+          "name": "Abnormal signal-to-noise ratio or RSSI",
+          "description": "信噪比或RSSI异常",
+          "gate_type": "OR",
+          "children": ["T14-EVT-004","T14-EVT-005"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T14-EVT-001",
+          "name": "Com_SoftwareRecInstructionCount abnormal",
+          "description": "通信机软件接收指令计数异常",
+          "alert_id": "YW-comm-Com_SoftwareRecInstructionCount"
+        },
+        {
+          "event_id": "T14-EVT-002",
+          "name": "Com_CorrectRecInstructionCount abnormal",
+          "description": "通信机接收正确指令计数异常",
+          "alert_id": "YW-comm-Com_CorrectRecInstructionCount"
+        },
+        {
+          "event_id": "T14-EVT-003",
+          "name": "Com_CommandSeriaPortCount abnormal",
+          "description": "通信机指令下发串口计数异常",
+          "alert_id": "YW-comm-Com_CommandSeriaPortCount"
+        },
+        {
+          "event_id": "T14-EVT-004",
+          "name": "Abnormal signal-to-noise ratio",
+          "description": "信噪比异常",
+          "alert_id": "YW-comm-TMEZD01145_SNR"
+        },
+        {
+          "event_id": "T14-EVT-005",
+          "name": "Abnormal RSSI",
+          "description": "RSSI异常",
+          "alert_id": "YW-comm-TMEZD01147_ReceiveRSSI"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-015",
+      "description": "遥测密态切换失败",
+      "top_events": [
+        {
+          "event_id": "T15-TOP-001",
+          "name": "CJB-O2-CS-5",
+          "description": "遥测密态切换失败",
+          "fault_code": "YW-O2-CS-5",
+          "gate_type": "OR",
+          "children": ["T15-MID-001", "T15-MID-002", "T15-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T15-MID-001",
+          "recovery_plan_id": "RP-019",
+          "name": "CAN command receive abnormal",
+          "description": "CAN指令接收异常",
+          "gate_type": "AND",
+          "children": ["T15-EVT-001","T15-EVT-003"]
+        },
+        {
+          "event_id": "T15-MID-002",
+          "recovery_plan_id": "RP-020",
+          "name": "RS422 abnormal",
+          "description": "RS422异常",
+          "gate_type": "AND",
+          "children": ["T15-EVT-002", "T15-EVT-003"]
+        },
+        {
+          "event_id": "T15-MID-003",
+          "recovery_plan_id": "RP-020",
+          "name": "Communication device program abnormal",
+          "description": "通信机程序异常",
+          "gate_type": "AND",
+          "children": ["NOT-T15-MID-001","NOT-T15-MID-002","T15-EVT-003"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T15-EVT-001",
+          "name": "TMEZD01004cjb_InstructionCount not increase",
+          "description": "TMEZD01004接收命令计数未增加",
+          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+        },
+        {
+          "event_id": "T15-EVT-002",
+          "name": "TMEZD01150_ReceiveCTACount abnormal",
+          "description": "TMEZD01150cjb-通信机-空空遥控计数未增加",
+          "alert_id": "YW-comm-TMEZD01150_ReceiveCTACount"
+        },
+        {
+          "event_id": "T15-EVT-003",
+          "name": "TMEZD01167_TelemetryEncryptStatus abnormal",
+          "description": "TMEZD01167通信机-遥测明/密状态与期望不符",
+          "alert_id": "YW-comm-TMEZD01167_TelemetryEncryptStatus"
+        }
+      ]
+    },
+        {
+      "fault_tree_id": "TREE-016",
+      "description": "遥控密态切换失败",
+      "top_events": [
+        {
+          "event_id": "T16-TOP-001",
+          "name": "CJB-O2-CS-6",
+          "description": "遥控密态切换失败",
+          "fault_code": "YW-O2-CS-6",
+          "gate_type": "OR",
+          "children": ["T16-MID-001", "T16-MID-002", "T16-MID-003"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T16-MID-001",
+          "recovery_plan_id": "RP-021",
+          "name": "CAN command receive abnormal",
+          "description": "CAN指令接收异常",
+          "gate_type": "AND",
+          "children": ["T16-EVT-001","T16-EVT-003"]
+        },
+        {
+          "event_id": "T16-MID-002",
+          "recovery_plan_id": "RP-022",
+          "name": "RS422 abnormal",
+          "description": "RS422异常",
+          "gate_type": "AND",
+          "children": ["T16-EVT-002", "T16-EVT-003"]
+        },
+        {
+          "event_id": "T16-MID-003",
+          "recovery_plan_id": "RP-022",
+          "name": "Communication device program abnormal",
+          "description": "通信机程序异常",
+          "gate_type": "AND",
+          "children": ["NOT-T16-MID-001","NOT-T16-MID-002","T16-EVT-003"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T16-EVT-001",
+          "name": "TMEZD01004cjb_InstructionCount not increase",
+          "description": "TMEZD01004接收命令计数未增加",
+          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+        },
+        {
+          "event_id": "T16-EVT-002",
+          "name": "TMEZD01150_ReceiveCTACount abnormal",
+          "description": "TMEZD01150cjb-通信机-空空遥控计数未增加",
+          "alert_id": "YW-comm-TMEZD01150_ReceiveCTACount"
+        },
+        {
+          "event_id": "T16-EVT-003",
+          "name": "TMEZD01168_TelemetryEncryptStatus abnormal",
+          "description": "TMEZD01168通信机-遥控明/密状态与期望不符",
+          "alert_id": "YW-comm-TMEZD01168_TelemetryEncryptStatus"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-017",
+      "description": "GNSSA上电异常",
+      "top_events": [
+        {
+          "event_id": "T17-TOP-001",
+          "name": "CJB-O2-CS-7",
+          "description": "GNSSA上电异常",
+          "fault_code": "YW-O2-CS-7",
+          "gate_type": "BASIC",
+          "children": ["T17-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T17-MID-001",
+          "recovery_plan_id": "RP-023",
+          "name": "Communication device failed to start",
+          "description": "GNSSA上电异常",
+          "gate_type": "AND",
+          "children": ["T17-EVT-001","T17-EVT-002"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T17-EVT-001",
+          "name": "GNSS_No_telemetry_count increase",
+          "description": "GNSSA串口无遥测",
+          "alert_id": "YW-AttitudeOrbitControl-GNSS_No_telemetry_count"
+        },
+        {
+          "event_id": "T17-EVT-002",
+          "name": "TMEZD01247_LoadCurrent abnormal",
+          "description": "TMEZD01247 负载电流化小于0.1A",
+          "alert_id": "YW-power-TMEZD01247_LoadCurrent"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-018",
+      "description": "GNSSA遥测异常",
+      "top_events": [
+        {
+          "event_id": "T18-TOP-001",
+          "name": "CJB-O2-CS-8",
+          "description": "GNSSA遥测异常",
+          "fault_code": "YW-O2-CS-8",
+          "gate_type": "BASIC",
+          "children": ["T18-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T18-MID-001",
+          "recovery_plan_id": "RP-023",
+          "name": "Telemetry acquisition of GNSS faults",
+          "description": "GNSSA遥测异常",
+          "gate_type": "AND",
+          "children": ["T18-EVT-001", "T18-MID-002"]
+        },
+        {
+          "event_id": "T18-MID-002",
+          "name": "GNSS fault count increased",
+          "description": "GNSS故障计数增加",
+          "gate_type": "OR",
+          "children": ["T18-EVT-002","T18-EVT-003","T18-EVT-004","T18-EVT-005"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T18-EVT-001",
+          "name": "GNSS_No_telemetry_count increase",
+          "description": "GNSS串口无遥测",
+          "alert_id": "YW-AttitudeOrbitControl-GNSS_No_telemetry_count"
+        },
+        {
+          "event_id": "T18-EVT-002",
+          "name": "TMEZD01041_CheckErrorCount abnormal",
+          "description": "TMEZD01041cjb-星务-串口12GNSS校验错计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01041_CheckErrorCount"
+        },
+        {
+          "event_id": "T18-EVT-003",
+          "name": "TMEZD01042_FrameHeaderErrorCount abnormal",
+          "description": "TMEZD01042cjb-星务-串口12GNSS帧头错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01042_FrameHeaderErrorCount"
+        },
+        {
+          "event_id": "T18-EVT-004",
+          "name": "TMEZD01043_FrameLengthErrorCount abnormal",
+          "description": "TMEZD01043cjb-星务-串口12GNSS帧长错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01043_FrameLengthErrorCount"
+        },
+        {
+          "event_id": "T18-EVT-005",
+          "name": "TMEZD01044_ResetCount abnormal",
+          "description": "TMEZD01044cjb-星务-串口12GNSS复位计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01044_ResetCount"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-019",
+      "description": "陀螺仪开机异常",
+      "top_events": [
+        {
+          "event_id": "T19-TOP-001",
+          "name": "CJB-O2-CS-9",
+          "description": "陀螺仪开机异常",
+          "fault_code": "YW-O2-CS-9",
+          "gate_type": "BASIC",
+          "children": ["T19-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T19-MID-001",
+          "recovery_plan_id": "RP-024",
+          "name": "Gyroscope failed to start",
+          "description": "陀螺仪开机异常",
+          "gate_type": "AND",
+          "children": ["T19-EVT-001","T19-EVT-002"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T19-EVT-001",
+          "name": "Gyroscope_No_telemetry_count increase",
+          "description": "陀螺仪串口无遥测",
+          "alert_id": "YW-AttitudeOrbitControl-Gyroscope_No_telemetry_count"
+        },
+        {
+          "event_id": "T19-EVT-002",
+          "name": "TMEZD01247_LoadCurrent abnormal",
+          "description": "TMEZD01247 负载电流化小于0.1A",
+          "alert_id": "YW-power-TMEZD01247_LoadCurrent"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-020",
+      "description": "陀螺仪遥测异常",
+      "top_events": [
+        {
+          "event_id": "T20-TOP-001",
+          "name": "CJB-O2-CS-10",
+          "description": "陀螺仪遥测异常",
+          "fault_code": "YW-O2-CS-10",
+          "gate_type": "BASIC",
+          "children": ["T20-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T20-MID-001",
+          "recovery_plan_id": "RP-024",
+          "name": "Gyroscope telemetry anomaly",
+          "description": "陀螺仪遥测异常",
+          "gate_type": "AND",
+          "children": ["T20-EVT-001","T20-MID-002"]
+        },
+        {
+          "event_id": "T20-MID-002",
+          "name": "Gyroscope fault count increased",
+          "description": "陀螺仪故障计数增加",
+          "gate_type": "OR",
+          "children": ["T20-EVT-002","T20-EVT-003","T20-EVT-004","T20-EVT-005"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T20-EVT-001",
+          "name": "Gyroscope_No_telemetry_count increase",
+          "description": "陀螺仪串口无遥测",
+          "alert_id": "YW-AttitudeOrbitControl-Gyroscope_No_telemetry_count"
+        },
+        {
+          "event_id": "T20-EVT-002",
+          "name": "TMEZD01021_CheckErrorCount abnormal",
+          "description": "TMEZD01021cjb-星务-串口5微光纤校验错计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01021_CheckErrorCount"
+        },
+        {
+          "event_id": "T20-EVT-003",
+          "name": "TMEZD01022_FrameHeaderErrorCount abnormal",
+          "description": "TMEZD01022cjb-星务-串口5微光纤帧头错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01022_FrameHeaderErrorCount"
+        },
+        {
+          "event_id": "T20-EVT-004",
+          "name": "TMEZD01023_FrameLengthErrorCount abnormal",
+          "description": "TMEZD01023cjb-星务-串口5微光纤帧长错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01023_FrameLengthErrorCount"
+        },
+        {
+          "event_id": "T20-EVT-005",
+          "name": "TMEZD01024_ResetCount abnormal",
+          "description": "TMEZD01024cjb-星务-串口5微光纤复位计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01024_ResetCount"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-021",
+      "description": "MEMS开机异常",
+      "top_events": [
+        {
+          "event_id": "T21-TOP-001",
+          "name": "CJB-O2-CS-11",
+          "description": "MEMS开机异常",
+          "fault_code": "YW-O2-CS-11",
+          "gate_type": "BASIC",
+          "children": ["T21-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T21-MID-001",
+          "recovery_plan_id": "RP-025",
+          "name": "MEMS failed to start",
+          "description": "MEMS开机异常",
+          "gate_type": "AND",
+          "children": ["T21-EVT-001"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T21-EVT-001",
+          "name": "MEMS_No_telemetry_count increase",
+          "description": "MEMS串口无遥测",
+          "alert_id": "YW-AttitudeOrbitControl-MEMS_No_telemetry_count"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-022",
+      "description": "MEMS遥测异常",
+      "top_events": [
+        {
+          "event_id": "T22-TOP-001",
+          "name": "CJB-O2-CS-12",
+          "description": "MEMS遥测异常",
+          "fault_code": "YW-O2-CS-12",
+          "gate_type": "BASIC",
+          "children": ["T22-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T22-MID-001",
+          "recovery_plan_id": "RP-025",
+          "name": "MEMS telemetry anomaly",
+          "description": "MEMS遥测异常",
+          "gate_type": "AND",
+          "children": ["T22-EVT-001","T22-MID-002"]
+        },
+        {
+          "event_id": "T22-MID-002",
+          "name": "MEMS device fault count increased",
+          "description": "MEMS故障计数增加",
+          "gate_type": "OR",
+          "children": ["T22-EVT-002","T22-EVT-003","T22-EVT-004","T22-EVT-005"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T22-EVT-001",
+          "name": "MEMS_No_telemetry_count increase",
+          "description": "MEMS串口无遥测",
+          "alert_id": "YW-AttitudeOrbitControl-MEMS_No_telemetry_count"
+        },
+        {
+          "event_id": "T22-EVT-002",
+          "name": "TMEZD01025_CheckErrorCount abnormal",
+          "description": "TMEZD01025cjb-星务-串口6微机械校验错计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01025_CheckErrorCount"
+        },
+        {
+          "event_id": "T22-EVT-003",
+          "name": "TMEZD01026_FrameHeaderErrorCount abnormal",
+          "description": "TMEZD01026cjb-星务-串口6微机械帧头错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01026_FrameHeaderErrorCount"
+        },
+        {
+          "event_id": "T22-EVT-004",
+          "name": "TMEZD01027_FrameLengthErrorCount abnormal",
+          "description": "TMEZD01027cjb-星务-串口6微机械帧长错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01027_FrameLengthErrorCount"
+        },
+        {
+          "event_id": "T22-EVT-005",
+          "name": "TMEZD01028_ResetCount abnormal",
+          "description": "TMEZD01028cjb-星务-串口6微机械复位计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01028_ResetCount"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-023",
+      "description": "星敏开机异常",
+      "top_events": [
+        {
+          "event_id": "T23-TOP-001",
+          "name": "CJB-O2-CS-13",
+          "description": "星敏开机异常",
+          "fault_code": "YW-O2-CS-13",
+          "gate_type": "BASIC",
+          "children": ["T23-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T23-MID-001",
+          "recovery_plan_id": "RP-026",
+          "name": "Star Sensor failed to start",
+          "description": "星敏开机异常",
+          "gate_type": "AND",
+          "children": ["T23-EVT-001"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T23-EVT-001",
+          "name": "StarTrackerl_No_telemetry_count increase",
+          "description": "星敏串口无遥测",
+          "alert_id": "YW-AttitudeOrbitControl-StarTrackerl_No_telemetry_count"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-024",
+      "description": "星敏遥测异常",
+      "top_events": [
+        {
+          "event_id": "T24-TOP-001",
+          "name": "CJB-O2-CS-14",
+          "description": "星敏遥测异常",
+          "fault_code": "YW-O2-CS-14",
+          "gate_type": "BASIC",
+          "children": ["T24-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T24-MID-001",
+          "recovery_plan_id": "RP-026",
+          "name": "StarTrackerl telemetry anomaly",
+          "description": "星敏遥测异常",
+          "gate_type": "AND",
+          "children": ["T24-EVT-001","T24-MID-002"]
+        },
+        {
+          "event_id": "T24-MID-002",
+          "name": "StarTrackerl fault count increased",
+          "description": "星敏故障计数增加",
+          "gate_type": "OR",
+          "children": ["T24-EVT-002","T24-EVT-003","T24-EVT-004","T24-EVT-005","T24-EVT-006","T24-EVT-007","T24-EVT-008","T24-EVT-009"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T24-EVT-001",
+          "name": "StarTrackerl_No_telemetry_count increase",
+          "description": "星敏串口无遥测",
+          "alert_id": "YW-AttitudeOrbitControl-StarTrackerl_No_telemetry_count"
+        },
+        {
+          "event_id": "T24-EVT-002",
+          "name": "TMEZD01033_CheckErrorCount abnormal",
+          "description": "TMEZD01033cjb-星务-串口8星敏1校验错计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01033_CheckErrorCount"
+        },
+        {
+          "event_id": "T24-EVT-003",
+          "name": "TMEZD01034_FrameHeaderErrorCount abnormal",
+          "description": "TMEZD01034cjb-星务-串口8星敏1帧头错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01034_FrameHeaderErrorCount"
+        },
+        {
+          "event_id": "T24-EVT-004",
+          "name": "TMEZD01035_FrameLengthErrorCount abnormal",
+          "description": "TMEZD01035cjb-星务-串口8星敏1帧长错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01035_FrameLengthErrorCount"
+        },
+        {
+          "event_id": "T24-EVT-005",
+          "name": "TMEZD01036_ResetCount abnormal",
+          "description": "TMEZD01036cjb-星务-串口8星敏1复位计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01036_ResetCount"
+        },
+        {
+          "event_id": "T24-EVT-006",
+          "name": "TMEZD01037_CheckErrorCount abnormal",
+          "description": "TMEZD01037cjb-星务-串口9星敏2校验错计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01037_CheckErrorCount"
+        },
+        {
+          "event_id": "T24-EVT-007",
+          "name": "TMEZD01038_FrameHeaderErrorCount abnormal",
+          "description": "TMEZD01038cjb-星务-串口9星敏2帧头错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01038_FrameHeaderErrorCount"
+        },
+        {
+          "event_id": "T24-EVT-008",
+          "name": "TMEZD01039_FrameLengthErrorCount abnormal",
+          "description": "TMEZD01039cjb-星务-串口9星敏2帧长错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01039_FrameLengthErrorCount"
+        },
+        {
+          "event_id": "T24-EVT-009",
+          "name": "TMEZD01040_ResetCount abnormal",
+          "description": "TMEZD01040cjb-星务-串口9星敏2复位计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01040_ResetCount"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-025",
+      "description": "动量轮开机失败",
+      "top_events": [
+        {
+          "event_id": "T25-TOP-001",
+          "name": "CJB-O2-CS-15",
+          "description": "动量轮开机失败",
+          "fault_code": "YW-O2-CS-15",
+          "gate_type": "BASIC",
+          "children": ["T25-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T25-MID-001",
+          "recovery_plan_id": "RP-027",
+          "name": "MomentumWheel failed to start",
+          "description": "动量轮开机失败",
+          "gate_type": "AND",
+          "children": ["T25-EVT-001","T25-EVT-002"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T25-EVT-001",
+          "name": "MomentumWheel_No_telemetry_count increase",
+          "description": "动量轮串口无遥测",
+          "alert_id": "YW-MomentumWheel-MomentumWheel_No_telemetry_count"
+        },
+        {
+          "event_id": "T25-EVT-002",
+          "name": "TMEZD01247_LoadCurrent abnormal",
+          "description": "TMEZD01247 负载电流化小于0.1A",
+          "alert_id": "YW-power-TMEZD01247_LoadCurrent"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-026",
+      "description": "动量轮转速设置异常",
+      "top_events": [
+        {
+          "event_id": "T26-TOP-001",
+          "name": "CJB-O2-CS-16",
+          "description": "动量轮转速设置异常",
+          "fault_code": "YW-O2-CS-16",
+          "gate_type": "BASIC",
+          "children": ["T26-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T26-MID-001",
+          "recovery_plan_id": "RP-028",
+          "name": "CAN command receive abnormal",
+          "description": "CAN指令接收异常",
+          "gate_type": "AND",
+          "children": ["T26-EVT-001","T26-MID-002"]
+        },
+        {
+          "event_id": "T26-MID-002",
+          "name": "MomentumWheel speed setting anomaly",
+          "description": "动量轮转速设置异常",
+          "gate_type": "OR",
+          "children": ["T26-EVT-002","T26-EVT-003","T26-EVT-004"]
+        },
+        {
+          "event_id": "T26-MID-003",
+          "recovery_plan_id": "RP-029",
+          "name": "MomentumWheel speed setting anomaly",
+          "description": "RS422/动量轮程序异常",
+          "gate_type": "AND",
+          "children": ["NOT-T26-MID-001","T26-MID-002"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T26-EVT-001",
+          "name": "TMEZD01004cjb_InstructionCount not increase",
+          "description": "TMEZD01004接收命令计数未增加",
+          "alert_id": "YW-comm-TMEZD01004cjb_InstructionCount"
+        },
+        {
+          "event_id": "T26-EVT-002",
+          "name": "The momentum wheelX speed does not match the expected value",
+          "description": "TMEGNC2029_cjb_X轴动量轮转速与期望值不符",
+          "alert_id": "YW-MomentumWheel-WheelSpeed_X"
+        },
+        {
+          "event_id": "T26-EVT-003",
+          "name": "The momentum wheelY speed does not match the expected value",
+          "description": "TMEGNC2030_cjb_Y轴动量轮转速与期望值不符",
+          "alert_id": "YW-MomentumWheel-WheelSpeed_Y"
+        },
+        {
+          "event_id": "T26-EVT-004",
+          "name": "The momentum wheelZ speed does not match the expected value",
+          "description": "TMEGNC2031_cjb_Z轴动量轮转速与期望值不符",
+          "alert_id": "YW-MomentumWheel-WheelSpeed_Z"
+        }
+      ]
+    },
+    {
+      "fault_tree_id": "TREE-027",
+      "description": "动量轮遥测异常",
+      "top_events": [
+        {
+          "event_id": "T27-TOP-001",
+          "name": "CJB-O2-CS-17",
+          "description": "动量轮遥测异常",
+          "fault_code": "YW-O2-CS-17",
+          "gate_type": "BASIC",
+          "children": ["T27-MID-001"]
+        }
+      ],
+      "intermediate_events": [
+        {
+          "event_id": "T27-MID-001",
+          "recovery_plan_id": "RP-030",
+          "name": "Momentum wheel telemetry anomaly",
+          "description": "动量轮遥测异常",
+          "gate_type": "AND",
+          "children": ["T27-EVT-001","T27-EVT-002","T27-EVT-003","T27-EVT-004","T27-EVT-005"]
+        }
+      ],
+      "basic_events": [
+        {
+          "event_id": "T27-EVT-001",
+          "name": "MomentumWheel_No_telemetry_count increase",
+          "description": "动量轮串口无遥测",
+          "alert_id": "YW-MomentumWheel-MomentumWheel_No_telemetry_count"
+        },
+        {
+          "event_id": "T27-EVT-002",
+          "name": "TMEZD01013_CheckErrorCount abnormal",
+          "description": "TMEZD01013cjb-星务-串口1动量轮校验错计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01013_CheckErrorCount"
+        },
+        {
+          "event_id": "T27-EVT-003",
+          "name": "TMEZD01014_FrameHeaderErrorCount abnormal",
+          "description": "TMEZD01014cjb-星务-串口1动量轮帧头错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01014_FrameHeaderErrorCount"
+        },
+        {
+          "event_id": "T27-EVT-004",
+          "name": "TMEZD01015_FrameLengthErrorCount abnormal",
+          "description": "TMEZD01015cjb-星务-串口1动量轮帧长错误计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01015_FrameLengthErrorCount"
+        },
+        {
+          "event_id": "T27-EVT-005",
+          "name": "TMEZD01016_ResetCount abnormal",
+          "description": "TMEZD01016cjb-星务-串口1动量轮复位计数增加",
+          "alert_id": "YW-AttitudeOrbitControl-TMEZD01016_ResetCount"
+        }
+      ]
+    }
+  ]
+}

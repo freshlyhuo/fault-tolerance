@@ -9,17 +9,17 @@ const (
 
 // DiagnosisResult 与故障诊断模块结构一致
 type DiagnosisResult struct {
-	DiagnosisID   string                 // 诊断唯一标识
-	FaultTreeID   string                 // 故障树ID
-	TopEventID    string                 // 触发的顶层事件ID
-	TopEventName  string                 // 顶层事件名称
-	FaultCode     string                 // 故障码
-	FaultReason   string                 // 故障原因
-	Source        string                 // 诊断源（与告警Source一致）
-	Timestamp     time.Time              // 诊断时间
-	TriggerPath   []string               // 触发路径（事件ID列表）
-	BasicEvents   []string               // 触发的基本事件列表
-	Metadata      map[string]interface{} // 额外元数据
+	DiagnosisID  string                 // 诊断唯一标识
+	FaultTreeID  string                 // 故障树ID
+	TopEventID   string                 // 触发的顶层事件ID
+	TopEventName string                 // 顶层事件名称
+	FaultCode    string                 // 故障码
+	FaultReason  string                 // 故障原因
+	Source       string                 // 诊断源（与告警Source一致）
+	Timestamp    time.Time              // 诊断时间
+	TriggerPath  []string               // 触发路径（事件ID列表）
+	BasicEvents  []string               // 触发的基本事件列表
+	Metadata     map[string]interface{} // 额外元数据
 }
 
 // DiagnosisStatus 从诊断结果中推断状态（默认视为触发）
@@ -68,6 +68,7 @@ const (
 	ResultTimeout  = "TIMEOUT"
 	ResultRejected = "REJECTED"
 	ResultNoAction = "NO_ACTION"
+	ResultCanceled = "CANCELED"
 )
 
 func nowUnix() int64 {
