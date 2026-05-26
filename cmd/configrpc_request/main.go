@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"hash/crc32"
 	"os"
 	"strings"
 
@@ -167,7 +166,7 @@ func buildRequest(
 func computeChecksum(mode, customChecksum, configData string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
 	case "auto":
-		return fmt.Sprintf("%08X", crc32.ChecksumIEEE([]byte(configData))), nil
+		return checksumHex(configData), nil
 	case "bad":
 		return "BAD-CHECKSUM", nil
 	case "custom":
@@ -178,6 +177,25 @@ func computeChecksum(mode, customChecksum, configData string) (string, error) {
 	default:
 		return "", fmt.Errorf("unknown checksum-mode %q, use auto|bad|custom", mode)
 	}
+}
+
+func checksumHex(v string) string {
+	return fmt.Sprintf("%04X", crc16CCITTFalse([]byte(v)))
+}
+
+func crc16CCITTFalse(data []byte) uint16 {
+	crc := uint16(0xFFFF)
+	for _, b := range data {
+		crc ^= uint16(b) << 8
+		for i := 0; i < 8; i++ {
+			if crc&0x8000 != 0 {
+				crc = (crc << 1) ^ 0x1021
+			} else {
+				crc <<= 1
+			}
+		}
+	}
+	return crc
 }
 
 func printJSONLike(title string, raw []byte) {

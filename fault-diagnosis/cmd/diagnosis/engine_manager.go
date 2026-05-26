@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"hash/crc32"
 	"os"
 	"sync"
 
@@ -19,7 +18,7 @@ type reloadableDiagnosisEngine struct {
 
 	mu       sync.RWMutex
 	current  *engine.MultiDiagnosisEngine
-	checksum uint32
+	checksum uint16
 }
 
 func newReloadableDiagnosisEngine(configPath string, logger *zap.Logger, callback engine.DiagnosisCallback) (*reloadableDiagnosisEngine, error) {
@@ -52,7 +51,7 @@ func (m *reloadableDiagnosisEngine) Reload() error {
 	return err
 }
 
-func (m *reloadableDiagnosisEngine) reload() (uint32, error) {
+func (m *reloadableDiagnosisEngine) reload() (uint16, error) {
 	_, checksum, err := readConfigWithChecksum(m.configPath)
 	if err != nil {
 		return 0, err
@@ -78,14 +77,29 @@ func (m *reloadableDiagnosisEngine) reload() (uint32, error) {
 	return checksum, nil
 }
 
-func readConfigWithChecksum(path string) ([]byte, uint32, error) {
+func readConfigWithChecksum(path string) ([]byte, uint16, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, 0, err
 	}
-	return data, crc32.ChecksumIEEE(data), nil
+	return data, crc16CCITTFalse(data), nil
 }
 
-func formatChecksum(checksum uint32) string {
-	return fmt.Sprintf("%08X", checksum)
+func formatChecksum(checksum uint16) string {
+	return fmt.Sprintf("%04X", checksum)
+}
+
+func crc16CCITTFalse(data []byte) uint16 {
+	crc := uint16(0xFFFF)
+	for _, b := range data {
+		crc ^= uint16(b) << 8
+		for i := 0; i < 8; i++ {
+			if crc&0x8000 != 0 {
+				crc = (crc << 1) ^ 0x1021
+			} else {
+				crc <<= 1
+			}
+		}
+	}
+	return crc
 }

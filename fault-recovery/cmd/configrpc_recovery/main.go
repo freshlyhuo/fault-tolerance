@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"hash/crc32"
 	"os"
 
 	"fault-tolerance/fault-recovery/pkg/configrpc"
@@ -111,7 +110,22 @@ func callUpdateConfigRPC(cli *client.Client, requestBody []byte) (configrpc.Upda
 }
 
 func checksumHex(v string) string {
-	return fmt.Sprintf("%08X", crc32.ChecksumIEEE([]byte(v)))
+	return fmt.Sprintf("%04X", crc16CCITTFalse([]byte(v)))
+}
+
+func crc16CCITTFalse(data []byte) uint16 {
+	crc := uint16(0xFFFF)
+	for _, b := range data {
+		crc ^= uint16(b) << 8
+		for i := 0; i < 8; i++ {
+			if crc&0x8000 != 0 {
+				crc = (crc << 1) ^ 0x1021
+			} else {
+				crc <<= 1
+			}
+		}
+	}
+	return crc
 }
 
 func mustJSON(v interface{}) []byte {
