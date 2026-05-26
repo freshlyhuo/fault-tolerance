@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash/crc32"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -242,12 +241,18 @@ func initializeThresholdConfig() {
 		}
 		if fileMeta, ok := extractStatusFromPersistedMeta(b); ok {
 			meta = fileMeta
+			if !looksLikeCRC16Token(meta.CurrentChecksum) {
+				if cfgChecksum, err := checksumForConfig(cfg); err == nil {
+					meta.CurrentChecksum = cfgChecksum
+					legacyFileLoaded = true
+				}
+			}
 		} else {
 			meta.CurrentVersion = "BOOTSTRAP"
 			if cfgChecksum, err := checksumForConfig(cfg); err == nil {
 				meta.CurrentChecksum = cfgChecksum
 			} else {
-				meta.CurrentChecksum = formatCRC32Hex(crc32.ChecksumIEEE(b))
+				meta.CurrentChecksum = formatCRC16Hex(crc16CCITTFalse(b))
 			}
 			legacyFileLoaded = true
 		}
@@ -257,7 +262,7 @@ func initializeThresholdConfig() {
 
 	if meta.CurrentChecksum == "" {
 		if b, err := json.Marshal(cfg); err == nil {
-			meta.CurrentChecksum = formatCRC32Hex(crc32.ChecksumIEEE(b))
+			meta.CurrentChecksum = formatCRC16Hex(crc16CCITTFalse(b))
 		}
 	}
 
@@ -277,7 +282,7 @@ func checksumForConfig(cfg *ThresholdConfig) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return formatCRC32Hex(crc32.ChecksumIEEE(b)), nil
+	return formatCRC16Hex(crc16CCITTFalse(b)), nil
 }
 
 func extractStatusFromPersistedMeta(raw []byte) (ThresholdConfigStatus, bool) {
@@ -346,8 +351,23 @@ func persistThresholdConfig(path string, cfg *ThresholdConfig, status ThresholdC
 	return nil
 }
 
-func formatCRC32Hex(v uint32) string {
-	return fmt.Sprintf("%08X", v)
+func formatCRC16Hex(v uint16) string {
+	return fmt.Sprintf("%04X", v)
+}
+
+func crc16CCITTFalse(data []byte) uint16 {
+	crc := uint16(0xFFFF)
+	for _, b := range data {
+		crc ^= uint16(b) << 8
+		for i := 0; i < 8; i++ {
+			if crc&0x8000 != 0 {
+				crc = (crc << 1) ^ 0x1021
+			} else {
+				crc <<= 1
+			}
+		}
+	}
+	return crc
 }
 
 func normalizeChecksumToken(s string) string {
@@ -356,22 +376,31 @@ func normalizeChecksumToken(s string) string {
 	return v
 }
 
+func looksLikeCRC16Token(s string) bool {
+	v := normalizeChecksumToken(s)
+	if len(v) != 4 {
+		return false
+	}
+	_, err := strconv.ParseUint(v, 16, 16)
+	return err == nil
+}
+
 func checksumMatched(data []byte, provided string) bool {
 	provided = normalizeChecksumToken(provided)
 	if provided == "" {
 		return false
 	}
 
-	actual := crc32.ChecksumIEEE(data)
-	if provided == formatCRC32Hex(actual) {
+	actual := crc16CCITTFalse(data)
+	if provided == formatCRC16Hex(actual) {
 		return true
 	}
 
-	if u, err := strconv.ParseUint(provided, 16, 32); err == nil && uint32(u) == actual {
+	if u, err := strconv.ParseUint(provided, 16, 16); err == nil && uint16(u) == actual {
 		return true
 	}
 
-	if u, err := strconv.ParseUint(provided, 10, 32); err == nil && uint32(u) == actual {
+	if u, err := strconv.ParseUint(provided, 10, 16); err == nil && uint16(u) == actual {
 		return true
 	}
 
@@ -407,7 +436,7 @@ func UpdateThresholdConfig(version, checksum, configData string) error {
 
 	status := ThresholdConfigStatus{
 		CurrentVersion:  version,
-		CurrentChecksum: formatCRC32Hex(crc32.ChecksumIEEE(raw)),
+		CurrentChecksum: formatCRC16Hex(crc16CCITTFalse(raw)),
 	}
 
 	thresholdMu.RLock()

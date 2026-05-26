@@ -34,6 +34,18 @@ func hasAlert(alerts []*model.AlertEvent, id string) bool {
 	return false
 }
 
+func TestCountAlertStatuses(t *testing.T) {
+	firing, resolved := countAlertStatuses([]*model.AlertEvent{
+		{AlertID: "A", Status: model.AlertStatusFiring},
+		{AlertID: "B", Status: model.AlertStatusResolved},
+		{AlertID: "C"},
+		nil,
+	})
+	if firing != 2 || resolved != 1 {
+		t.Fatalf("unexpected counts: firing=%d resolved=%d", firing, resolved)
+	}
+}
+
 func TestCheckCommThresholdsWithStateUsesHistoryDeltas(t *testing.T) {
 	sm, err := state.NewStateManager()
 	if err != nil {
@@ -112,6 +124,98 @@ func TestCheckCommThresholdsWithStateChecksExpectedStates(t *testing.T) {
 	}
 }
 
+func TestCheckActuatorThresholdsWithStateChecksNoTelemetryIncrease(t *testing.T) {
+	sm, err := state.NewStateManager()
+	if err != nil {
+		t.Fatalf("NewStateManager failed: %v", err)
+	}
+	defer sm.Close()
+
+	storeBusinessMetric(t, sm, &model.ActuatorMetrics{
+		WheelSpeedX:      100,
+		WheelSpeedY:      100,
+		WheelSpeedZ:      100,
+		NoTelemetryCount: 1,
+	})
+
+	alerts := CheckActuatorThresholdsWithState(&model.ActuatorMetrics{
+		WheelSpeedX:      100,
+		WheelSpeedY:      100,
+		WheelSpeedZ:      100,
+		NoTelemetryCount: 2,
+	}, sm)
+
+	if !hasAlert(alerts, "YW-MomentumWheel-MomentumWheel_No_telemetry_count") {
+		t.Fatalf("expected momentum wheel no telemetry count increase alert")
+	}
+}
+
+func TestCheckActuatorThresholdsChecksWheelSpeedOnlyWhenCommandSet(t *testing.T) {
+	alerts := CheckActuatorThresholdsWithState(&model.ActuatorMetrics{
+		SendCmdK53029: 0,
+		WheelSpeedX:   120,
+		WheelSpeedY:   80,
+		WheelSpeedZ:   120,
+	}, nil)
+	if hasAlert(alerts, "YW-MomentumWheel-WheelSpeed_X") ||
+		hasAlert(alerts, "YW-MomentumWheel-WheelSpeed_Y") ||
+		hasAlert(alerts, "YW-MomentumWheel-WheelSpeed_Z") {
+		t.Fatalf("did not expect wheel speed alerts when SendCmd_K53029 is not 1")
+	}
+
+	alerts = CheckActuatorThresholdsWithState(&model.ActuatorMetrics{
+		SendCmdK53029: 1,
+		WheelSpeedX:   120,
+		WheelSpeedY:   80,
+		WheelSpeedZ:   120,
+	}, nil)
+	if !hasAlert(alerts, "YW-MomentumWheel-WheelSpeed_X") ||
+		!hasAlert(alerts, "YW-MomentumWheel-WheelSpeed_Y") ||
+		!hasAlert(alerts, "YW-MomentumWheel-WheelSpeed_Z") {
+		t.Fatalf("expected wheel speed alerts when SendCmd_K53029 is 1")
+	}
+}
+
+func TestCheckActuatorThresholdsWithStateChecksErrorCountIncreases(t *testing.T) {
+	sm, err := state.NewStateManager()
+	if err != nil {
+		t.Fatalf("NewStateManager failed: %v", err)
+	}
+	defer sm.Close()
+
+	storeBusinessMetric(t, sm, &model.ActuatorMetrics{
+		WheelSpeedX:           100,
+		WheelSpeedY:           100,
+		WheelSpeedZ:           100,
+		CheckErrorCount:       1,
+		FrameHeaderErrorCount: 1,
+		FrameLengthErrorCount: 1,
+		ResetCount:            1,
+	})
+
+	alerts := CheckActuatorThresholdsWithState(&model.ActuatorMetrics{
+		WheelSpeedX:           100,
+		WheelSpeedY:           100,
+		WheelSpeedZ:           100,
+		CheckErrorCount:       2,
+		FrameHeaderErrorCount: 2,
+		FrameLengthErrorCount: 2,
+		ResetCount:            2,
+	}, sm)
+
+	expectedAlerts := []string{
+		"YW-AttitudeOrbitControl-TMEZD01013_CheckErrorCount",
+		"YW-AttitudeOrbitControl-TMEZD01014_FrameHeaderErrorCount",
+		"YW-AttitudeOrbitControl-TMEZD01015_FrameLengthErrorCount",
+		"YW-AttitudeOrbitControl-TMEZD01016_ResetCount",
+	}
+	for _, id := range expectedAlerts {
+		if !hasAlert(alerts, id) {
+			t.Fatalf("expected alert %s", id)
+		}
+	}
+}
+
 func TestCheckAttitudeOrbitControlSkipsExpectedAndReceiveCounters(t *testing.T) {
 	sm, err := state.NewStateManager()
 	if err != nil {
@@ -143,5 +247,55 @@ func TestCheckAttitudeOrbitControlSkipsExpectedAndReceiveCounters(t *testing.T) 
 	}
 	if !hasAlert(alerts, "YW-AttitudeOrbitControl-TMEZD01041_CheckErrorCount") {
 		t.Fatalf("expected check error count increase alert")
+	}
+}
+
+func TestCheckAttitudeOrbitControlIncreaseRules(t *testing.T) {
+	sm, err := state.NewStateManager()
+	if err != nil {
+		t.Fatalf("NewStateManager failed: %v", err)
+	}
+	defer sm.Close()
+
+	storeBusinessMetric(t, sm, &model.AttitudeOrbitControlMetrics{
+		Values: map[string]interface{}{
+			"GNSS_No_telemetry_count":         1,
+			"TMEZD01054_ResetCount":           1,
+			"Gyroscope_No_telemetry_count":    1,
+			"TMEZD01021_CheckErrorCount":      1,
+			"MEMS_No_telemetry_count":         1,
+			"TMEZD01025_CheckErrorCount":      1,
+			"StarTrackerl_No_telemetry_count": 1,
+			"TMEZD01033_CheckErrorCount":      1,
+		},
+	})
+
+	alerts := CheckAttitudeOrbitControlThresholdsWithState(&model.AttitudeOrbitControlMetrics{
+		Values: map[string]interface{}{
+			"GNSS_No_telemetry_count":         2,
+			"TMEZD01054_ResetCount":           2,
+			"Gyroscope_No_telemetry_count":    2,
+			"TMEZD01021_CheckErrorCount":      2,
+			"MEMS_No_telemetry_count":         2,
+			"TMEZD01025_CheckErrorCount":      2,
+			"StarTrackerl_No_telemetry_count": 2,
+			"TMEZD01033_CheckErrorCount":      2,
+		},
+	}, sm)
+
+	expectedAlerts := []string{
+		"YW-AttitudeOrbitControl-GNSS_No_telemetry_count",
+		"YW-AttitudeOrbitControl-TMEZD01044_ResetCount",
+		"YW-AttitudeOrbitControl-Gyroscope_No_telemetry_count",
+		"YW-AttitudeOrbitControl-TMEZD01021_CheckErrorCount",
+		"YW-AttitudeOrbitControl-MEMS_No_telemetry_count",
+		"YW-AttitudeOrbitControl-TMEZD01025_CheckErrorCount",
+		"YW-AttitudeOrbitControl-StarTrackerl_No_telemetry_count",
+		"YW-AttitudeOrbitControl-TMEZD01033_CheckErrorCount",
+	}
+	for _, id := range expectedAlerts {
+		if !hasAlert(alerts, id) {
+			t.Fatalf("expected alert %s", id)
+		}
 	}
 }

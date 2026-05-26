@@ -3,9 +3,9 @@ package config
 import (
 	"errors"
 	"fmt"
-	"hash/crc32"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -38,12 +38,50 @@ func candidateFaultTreePaths() []string {
 	}
 }
 
-func formatCRC32Hex(v uint32) string {
-	return fmt.Sprintf("%08X", v)
+func formatCRC16Hex(v uint16) string {
+	return fmt.Sprintf("%04X", v)
+}
+
+func crc16CCITTFalse(data []byte) uint16 {
+	crc := uint16(0xFFFF)
+	for _, b := range data {
+		crc ^= uint16(b) << 8
+		for i := 0; i < 8; i++ {
+			if crc&0x8000 != 0 {
+				crc = (crc << 1) ^ 0x1021
+			} else {
+				crc <<= 1
+			}
+		}
+	}
+	return crc
 }
 
 func normalizeChecksumToken(v string) string {
-	return strings.ToUpper(strings.TrimSpace(v))
+	t := strings.ToUpper(strings.TrimSpace(v))
+	return strings.TrimPrefix(t, "0X")
+}
+
+func checksumMatched(data []byte, provided string) bool {
+	provided = normalizeChecksumToken(provided)
+	if provided == "" {
+		return false
+	}
+
+	actual := crc16CCITTFalse(data)
+	if provided == formatCRC16Hex(actual) {
+		return true
+	}
+
+	if u, err := strconv.ParseUint(provided, 16, 16); err == nil && uint16(u) == actual {
+		return true
+	}
+
+	if u, err := strconv.ParseUint(provided, 10, 16); err == nil && uint16(u) == actual {
+		return true
+	}
+
+	return false
 }
 
 func initializeFaultTreeConfigStatus() {
@@ -62,7 +100,7 @@ func initializeFaultTreeConfigStatus() {
 		}
 
 		status.CurrentVersion = "BOOTSTRAP"
-		status.CurrentChecksum = formatCRC32Hex(crc32.ChecksumIEEE(b))
+		status.CurrentChecksum = formatCRC16Hex(crc16CCITTFalse(b))
 		activePath = p
 		break
 	}
@@ -163,8 +201,9 @@ func UpdateFaultTreeConfig(version, checksum, configData string) error {
 		return fmt.Errorf("invalid update request")
 	}
 
-	actualChecksum := formatCRC32Hex(crc32.ChecksumIEEE([]byte(configData)))
-	if checksum != actualChecksum {
+	raw := []byte(configData)
+	actualChecksum := formatCRC16Hex(crc16CCITTFalse(raw))
+	if !checksumMatched(raw, checksum) {
 		return ErrChecksumMismatch
 	}
 
