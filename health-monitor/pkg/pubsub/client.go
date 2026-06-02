@@ -190,16 +190,19 @@ func toBusinessData(payload Payload) (interface{}, error) {
 			temps[i] = floatValue(payload.Values, fmt.Sprintf("TMEZD%05dcjb_ThermalTemp", 1066+i), fmt.Sprintf("ThermalTemp%d", i+1))
 		}
 		return &model.ThermalMetrics{
-			Timestamp:            payload.Timestamp,
-			ThermalTemps:         temps,
-			BatteryTemp1:         floatValue(payload.Values, "TMEZD01084_BatteryTemp1", "BatteryTemp1"),
-			BatteryTemp2:         floatValue(payload.Values, "TMEZD01085_BatteryTemp2", "BatteryTemp2"),
-			PlatformThermalTemp:  floatValue(payload.Values, "PlatformThermalTemp"),
-			BatteryThermalTemp:   floatValue(payload.Values, "BatteryThermalTemp"),
-			TankThermalTemp:      floatValue(payload.Values, "TankThermalTemp"),
-			PlatformHeaterSwitch: boolValue(payload.Values, "TMEZD01121_PlatformHeater", "PlatformHeaterSwitch"),
-			BatteryHeaterSwitch:  boolValue(payload.Values, "TMEZD01254_BatteryHeater", "BatteryHeaterSwitch"),
-			TankHeaterSwitch:     boolValue(payload.Values, "TMEZD01115_TankHeater", "TankHeaterSwitch"),
+			Timestamp:               payload.Timestamp,
+			ThermalTemps:            temps,
+			BatteryTemp1:            floatValue(payload.Values, "TMEZD01084_BatteryTemp1", "BatteryTemp1"),
+			BatteryTemp2:            floatValue(payload.Values, "TMEZD01085_BatteryTemp2", "BatteryTemp2"),
+			PlatformThermalTemp:     floatValue(payload.Values, "PlatformThermalTemp"),
+			BatteryThermalTemp:      floatValue(payload.Values, "BatteryThermalTemp"),
+			TankThermalTemp:         floatValue(payload.Values, "TankThermalTemp"),
+			PlatformHeaterSwitch:    boolValue(payload.Values, "TMEZD01121_PlatformHeater", "PlatformHeaterSwitch"),
+			BatteryHeaterSwitch:     boolValue(payload.Values, "TMEZD01254_BatteryHeater", "BatteryHeaterSwitch"),
+			TankHeaterSwitch:        boolValue(payload.Values, "TMEZD01115_TankHeater", "TankHeaterSwitch"),
+			PlatformHeatingExpected: optionalBoolValue(payload.Values, "PlatformHeatingSwitch_ExpectedState", "PlatformHeaterExpected"),
+			BatteryHeatingExpected:  optionalBoolValue(payload.Values, "BatteryHeatingSwitch_ExpectedState", "BatteryHeaterExpected"),
+			TankHeatingExpected:     optionalBoolValue(payload.Values, "TankHeatingSwitch_ExpectedState", "TankHeaterExpected"),
 		}, nil
 	case "comm":
 		return &model.CommMetrics{
@@ -214,6 +217,9 @@ func toBusinessData(payload Payload) (interface{}, error) {
 			FrameLengthErrorCount:               uint16Value(payload.Values, "TMEZD01048_FrameLengthErrorCount", "FrameLengthErrorCount"),
 			SerialResetCount:                    uint16Value(payload.Values, "TMEZD01052_ResetCount", "SerialResetCount"),
 			ReceiveCmdCount:                     uint32Value(payload.Values, "TMEZD01004cjb_InstructionCount", "ReceiveCmdCount"),
+			SoftwareRecInstructionCount:         uint32Value(payload.Values, "Com_SoftwareRecInstructionCount"),
+			CorrectRecInstructionCount:          uint32Value(payload.Values, "Com_CorrectRecInstructionCount"),
+			CommandSerialPortCount:              uint32Value(payload.Values, "Com_CommandSeriaPortCount"),
 			O1ReceiveDeviceResponseCount:        uint32Value(payload.Values, "O1_ReceiveDeviceResponseCount"),
 			O1ReceiveTelemetryResponseCount:     uint32Value(payload.Values, "O1_ReceiveTelemetryResponseCount"),
 			O1ReceiveRemoteControlResponseCount: uint32Value(payload.Values, "O1_ReceiveRemoteControlResponseCount"),
@@ -222,6 +228,10 @@ func toBusinessData(payload Payload) (interface{}, error) {
 			ReceiveCTACount:                     uint32Value(payload.Values, "TMEZD01150_ReceiveCTACount", "ReceiveCTACount"),
 			TelemetryEncryptStatus:              uint8Value(payload.Values, "TMEZD01167_TelemetryEncryptStatus"),
 			TelecontrolEncryptStatus:            uint8Value(payload.Values, "TMEZD01168_TelemetryEncryptStatus", "TelecontrolEncryptStatus"),
+			ReceiveRSSI:                         int16Value(payload.Values, "TMEZD01147_ReceiveRSSI", "ReceiveRSSI"),
+			TransmissionExpected:                optionalIntValue(payload.Values, "transmission_channel_ExpectedState", "TransmissionExpected"),
+			TelemetryExpected:                   optionalIntValue(payload.Values, "Communication_Telemetry_ExpectedState", "TelemetryExpected"),
+			RemoteControlExpected:               optionalIntValue(payload.Values, "Communicator_RemoteControl_ExpectedState", "RemoteControlExpected"),
 		}, nil
 	case "momentum_wheel", "actuator":
 		return &model.ActuatorMetrics{
@@ -280,6 +290,41 @@ func boolValue(m map[string]interface{}, keys ...string) bool {
 	default:
 		return false
 	}
+}
+
+func optionalBoolValue(m map[string]interface{}, keys ...string) *bool {
+	v := value(m, keys...)
+	if v == nil {
+		return nil
+	}
+	switch x := v.(type) {
+	case bool:
+		return &x
+	case float64:
+		b := x != 0
+		return &b
+	case string:
+		if b, err := strconv.ParseBool(strings.TrimSpace(x)); err == nil {
+			return &b
+		}
+		f, err := strconv.ParseFloat(strings.TrimSpace(x), 64)
+		if err != nil {
+			return nil
+		}
+		b := f != 0
+		return &b
+	default:
+		return nil
+	}
+}
+
+func optionalIntValue(m map[string]interface{}, keys ...string) *int {
+	f, ok := toFloat64(value(m, keys...))
+	if !ok {
+		return nil
+	}
+	n := int(f)
+	return &n
 }
 
 func uint8Value(m map[string]interface{}, keys ...string) uint8 {
