@@ -69,3 +69,36 @@ GOOS=sylixos GOARCH=arm64 go build -ldflags="-s -w" -o build/fault-recovery-conf
 ## 故障恢复
 1. 启停能够解决的微服务问题
 2. 如果故障恢复未成功如何处理
+
+## 场景测试
+1. 启动发布器：
+```
+./board-hardware-pubsub-sylixos -addr 127.0.0.1:6551 -url /hardware/metrics -interval 2s -scenario power_resolved_cancel -warmup-count 3 -repeat=true &
+```
+2. 启动集成测试
+```
+./integration-health-diagnosis-pubsub-sylixos -hardware-pubsub-addr 127.0.0.1:6551 -hardware-pubsub-url /hardware/metrics -diagnosis-config ./fault-diagnosis/configs/fault_trees_multi_template.json -recovery-plan-config ./fault-recovery/configs/recovery_plan_mapping_template.json -scenario power_resolved_cancel -exit-after-diagnoses 1 -recovery-drain-timeout 45s -timeout 120s
+```
+3. 所有场景
+power_dispatch
+ad_dispatch
+thermal_sensor_fault
+heater_platform_fault
+heater_battery_fault
+heater_tank_fault
+can_noresponse
+comm_telemetry_fault
+comm_start_fail
+comm_transmit_switch_fault
+comm_air_link_fault
+comm_telemetry_encrypt_fault
+comm_remote_encrypt_fault
+gnss_telemetry_fault
+gyro_telemetry_fault
+mems_telemetry_fault
+startracker_telemetry_fault
+momentum_start_fail
+momentum_recheck_ok
+momentum_direct_dispatch
+momentum_telemetry_fault
+power_resolved_cancel

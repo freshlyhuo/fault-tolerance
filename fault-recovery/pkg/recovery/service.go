@@ -2,6 +2,7 @@ package recovery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -14,13 +15,16 @@ type StateChecker interface {
 }
 
 type RecoveryServiceConfig struct {
-	QueueSize int
+	QueueSize    int
+	OnPlanStart  func(RecoveryPlanEvent)
+	OnPlanFinish func(RecoveryPlanEvent)
 }
 
 type RecoveryService struct {
 	registry *PlanRegistry
 	client   ContainerClient
 	checker  StateChecker
+	faults   *faultStatusTracker
 	sm       StateManager
 
 	queue chan *recoveryTask
@@ -28,6 +32,21 @@ type RecoveryService struct {
 	mu     sync.Mutex
 	active map[string]*recoveryTask
 	queued map[string]*recoveryTask
+
+	onPlanStart  func(RecoveryPlanEvent)
+	onPlanFinish func(RecoveryPlanEvent)
+}
+
+var errRecoveryPlanComplete = errors.New("recovery plan complete")
+
+type RecoveryPlanEvent struct {
+	TraceID     string
+	PlanID      string
+	TargetID    string
+	FaultCode   string
+	Status      string
+	Error       string
+	TimestampMs int64
 }
 
 type recoveryTask struct {
@@ -50,10 +69,14 @@ func NewRecoveryService(registry *PlanRegistry, client ContainerClient, checker 
 		registry: registry,
 		client:   client,
 		checker:  checker,
+		faults:   newFaultStatusTracker(),
 		sm:       sm,
 		queue:    make(chan *recoveryTask, qsize),
 		active:   make(map[string]*recoveryTask),
 		queued:   make(map[string]*recoveryTask),
+
+		onPlanStart:  cfg.OnPlanStart,
+		onPlanFinish: cfg.OnPlanFinish,
 	}
 }
 
@@ -101,6 +124,7 @@ func (s *RecoveryService) SubmitNormalized(ev NormalizedEvent) error {
 	if s == nil {
 		return fmt.Errorf("recovery service is nil")
 	}
+	s.faults.Observe(ev)
 	if ev.Status == EventStatusResolved {
 		s.cancelMatching(ev)
 		return nil
@@ -121,6 +145,11 @@ func (s *RecoveryService) SubmitNormalized(ev NormalizedEvent) error {
 			continue
 		}
 		if len(plan.InstructionIDs) == 0 {
+			if plan.IsLogExecutor() {
+				log.Printf("[recovery][log] trace=%s plan=%s target=%s fault=%s description=%s", ev.TraceID, plan.PlanID, ev.TargetID, ev.FaultCode, plan.Description)
+				_ = s.report(ev, planID, ResultSuccess, "LOG_ONLY", "recovery plan handled by log executor")
+				continue
+			}
 			_ = s.report(ev, planID, ResultNoAction, "NO_ACTION", "recovery plan has no instruction_id")
 			continue
 		}
@@ -197,6 +226,7 @@ func (s *RecoveryService) runTask(task *recoveryTask) {
 	status := ResultSuccess
 	message := "SUCCESS"
 	errText := ""
+	s.notifyPlanStart(task.event, task.plan.PlanID)
 
 	ctx := task.ctx
 	if timeout := task.plan.Timeout(); timeout > 0 {
@@ -228,6 +258,7 @@ func (s *RecoveryService) runTask(task *recoveryTask) {
 		Error:      errText,
 	}
 	_ = s.sm.ReportResult(result)
+	s.notifyPlanFinish(task.event, task.plan.PlanID, status, errText)
 	if status == ResultFailed {
 		log.Printf("[recovery][plan] plan=%s trace=%s target=%s status=RETRY_EXHAUSTED err=%s", task.plan.PlanID, task.event.TraceID, task.event.TargetID, errText)
 	}
@@ -240,6 +271,10 @@ func (s *RecoveryService) executePlan(ctx context.Context, ev NormalizedEvent, p
 			continue
 		}
 		if err := s.executeWithRetry(ctx, ev, plan, idx, instructionID); err != nil {
+			if errors.Is(err, errRecoveryPlanComplete) {
+				log.Printf("[recovery][plan] plan=%s trace=%s target=%s status=RECHECK_CLEAR", plan.PlanID, ev.TraceID, ev.TargetID)
+				return nil
+			}
 			return err
 		}
 	}
@@ -258,9 +293,12 @@ func (s *RecoveryService) executeWithRetry(ctx context.Context, ev NormalizedEve
 		}
 
 		if strings.HasPrefix(instructionID, "CTRL_") {
-			lastErr = s.executeControl(ctx, instructionID)
+			lastErr = s.executeControl(ctx, ev, instructionID)
 		} else {
 			lastErr = s.dispatchInstruction(ctx, ev, plan, idx, instructionID)
+		}
+		if errors.Is(lastErr, errRecoveryPlanComplete) {
+			return lastErr
 		}
 		if lastErr == nil {
 			return nil
@@ -281,7 +319,7 @@ func (s *RecoveryService) dispatchInstruction(ctx context.Context, ev Normalized
 	return err
 }
 
-func (s *RecoveryService) executeControl(ctx context.Context, instructionID string) error {
+func (s *RecoveryService) executeControl(ctx context.Context, ev NormalizedEvent, instructionID string) error {
 	if strings.HasPrefix(instructionID, "CTRL_WAIT_") && strings.HasSuffix(instructionID, "ms") {
 		raw := strings.TrimSuffix(strings.TrimPrefix(instructionID, "CTRL_WAIT_"), "ms")
 		var ms int
@@ -292,6 +330,15 @@ func (s *RecoveryService) executeControl(ctx context.Context, instructionID stri
 	}
 
 	if strings.HasPrefix(instructionID, "CTRL_RECHECK_") {
+		if instructionID == "CTRL_RECHECK_error" {
+			active := s.faults.IsActive(ev)
+			log.Printf("[recovery][control] recheck fault trace=%s tree=%s top=%s fault=%s target=%s active=%v",
+				ev.TraceID, ev.FaultTreeID, ev.TopEventID, ev.FaultCode, ev.TargetID, active)
+			if !active {
+				return errRecoveryPlanComplete
+			}
+			return nil
+		}
 		parts := strings.Split(strings.TrimPrefix(instructionID, "CTRL_RECHECK_"), "_")
 		if len(parts) < 2 {
 			return fmt.Errorf("legacy recheck control instruction requires migration: %s", instructionID)
@@ -334,11 +381,19 @@ func (s *RecoveryService) cancelMatching(ev NormalizedEvent) {
 		if task.matchesResolved(ev, planSet) {
 			delete(s.queued, key)
 			task.cancel()
-			_ = s.reportLocked(task.event, task.plan.PlanID, ResultCanceled, "CANCELED", "canceled by resolved diagnosis")
+			if task.plan.HasLegacyErrorRecheck() {
+				_ = s.reportLocked(task.event, task.plan.PlanID, ResultSuccess, "RECHECK_CLEAR", "fault resolved before recovery plan started")
+			} else {
+				_ = s.reportLocked(task.event, task.plan.PlanID, ResultCanceled, "CANCELED", "canceled by resolved diagnosis")
+			}
 		}
 	}
 	for _, task := range s.active {
 		if task.matchesResolved(ev, planSet) {
+			if task.plan.HasLegacyErrorRecheck() {
+				log.Printf("[recovery][control] plan=%s trace=%s keeps running until CTRL_RECHECK_error", task.plan.PlanID, task.event.TraceID)
+				continue
+			}
 			task.cancel()
 		}
 	}
@@ -383,6 +438,9 @@ func (s *RecoveryService) report(ev NormalizedEvent, action, status, message, er
 }
 
 func (s *RecoveryService) reportLocked(ev NormalizedEvent, action, status, message, errText string) error {
+	if action != "" {
+		s.notifyPlanStart(ev, action)
+	}
 	result := RecoveryResult{
 		TargetID:   ev.TargetID,
 		FaultCode:  ev.FaultCode,
@@ -393,7 +451,37 @@ func (s *RecoveryService) reportLocked(ev NormalizedEvent, action, status, messa
 		FinishedAt: nowUnix(),
 		Error:      errText,
 	}
-	return s.sm.ReportResult(result)
+	err := s.sm.ReportResult(result)
+	s.notifyPlanFinish(ev, action, status, errText)
+	return err
+}
+
+func (s *RecoveryService) notifyPlanStart(ev NormalizedEvent, planID string) {
+	if s == nil || s.onPlanStart == nil {
+		return
+	}
+	s.onPlanStart(RecoveryPlanEvent{
+		TraceID:     ev.TraceID,
+		PlanID:      planID,
+		TargetID:    ev.TargetID,
+		FaultCode:   ev.FaultCode,
+		TimestampMs: nowUnixMilli(),
+	})
+}
+
+func (s *RecoveryService) notifyPlanFinish(ev NormalizedEvent, planID, status, errText string) {
+	if s == nil || s.onPlanFinish == nil {
+		return
+	}
+	s.onPlanFinish(RecoveryPlanEvent{
+		TraceID:     ev.TraceID,
+		PlanID:      planID,
+		TargetID:    ev.TargetID,
+		FaultCode:   ev.FaultCode,
+		Status:      status,
+		Error:       errText,
+		TimestampMs: nowUnixMilli(),
+	})
 }
 
 func taskKey(ev NormalizedEvent, planID string) string {

@@ -113,6 +113,19 @@ func (p RecoveryPlan) Timeout() time.Duration {
 	return time.Duration(p.TimeoutMS) * time.Millisecond
 }
 
+func (p RecoveryPlan) IsLogExecutor() bool {
+	return strings.EqualFold(strings.TrimSpace(p.Executor), "log")
+}
+
+func (p RecoveryPlan) HasLegacyErrorRecheck() bool {
+	for _, instructionID := range p.InstructionIDs {
+		if strings.TrimSpace(instructionID) == "CTRL_RECHECK_error" {
+			return true
+		}
+	}
+	return false
+}
+
 func (p RecoveryPlan) Backoff(attempt int) time.Duration {
 	if attempt <= 0 {
 		return 0

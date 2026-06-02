@@ -3,6 +3,8 @@ package alert
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"health-monitor/pkg/models"
 	"health-monitor/pkg/state"
 )
@@ -80,6 +82,8 @@ func (g *Generator) ProcessBusinessMetrics(ctx context.Context, bm *model.Busine
 
 // outputAlerts 输出告警事件
 func (g *Generator) outputAlerts(alerts []*model.AlertEvent) {
+	stampHealthAlertMs(alerts)
+
 	// 过滤掉恢复告警（resolved状态），只输出 firing 告警
 	var firingAlerts []*model.AlertEvent
 	for _, alert := range alerts {
@@ -118,6 +122,21 @@ func (g *Generator) outputAlerts(alerts []*model.AlertEvent) {
 	// 2. 数据库
 	// 3. 可视化平台
 	// 4. 告警通知系统（邮件、短信等）
+}
+
+func stampHealthAlertMs(alerts []*model.AlertEvent) {
+	nowMs := time.Now().UnixNano() / int64(time.Millisecond)
+	for _, alert := range alerts {
+		if alert == nil {
+			continue
+		}
+		if alert.Metadata == nil {
+			alert.Metadata = map[string]interface{}{}
+		}
+		if _, ok := alert.Metadata["health_alert_ms"]; !ok {
+			alert.Metadata["health_alert_ms"] = nowMs
+		}
+	}
 }
 
 func countAlertStatuses(alerts []*model.AlertEvent) (firingCount, resolvedCount int) {

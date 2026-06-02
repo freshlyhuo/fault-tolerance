@@ -139,6 +139,11 @@ type ThermalMetrics struct {
 	BatteryHeaterSwitch  bool // TMEZD01254: 蓄电池加热总开关状态, 1=打开
 	TankHeaterSwitch     bool // TMEZD01115: 储箱加热总开关状态, 1=打开
 
+	// 测试场景随遥测载荷下发的期望状态；为空时使用阈值配置。
+	PlatformHeatingExpected *bool // PlatformHeatingSwitch_ExpectedState
+	BatteryHeatingExpected  *bool // BatteryHeatingSwitch_ExpectedState
+	TankHeatingExpected     *bool // TankHeatingSwitch_ExpectedState
+
 	// 故障关联编号
 	FaultCodes []string // 关联的故障编号
 }
@@ -164,7 +169,10 @@ type CommMetrics struct {
 	SerialResetCount      uint16 // TMEZD01052: 串口复位计数
 
 	// 命令接收计数
-	ReceiveCmdCount uint32 // TMEZD01004: 接收命令计数
+	ReceiveCmdCount             uint32 // TMEZD01004: 接收命令计数
+	SoftwareRecInstructionCount uint32 // Com_SoftwareRecInstructionCount
+	CorrectRecInstructionCount  uint32 // Com_CorrectRecInstructionCount
+	CommandSerialPortCount      uint32 // Com_CommandSeriaPortCount
 
 	// O1响应计数类指标
 	O1ReceiveDeviceResponseCount        uint32 // O1_ReceiveDeviceResponseCount
@@ -179,6 +187,12 @@ type CommMetrics struct {
 	ReceiveCTACount          uint32 // TMEZD01150: 空空遥控计数
 	TelemetryEncryptStatus   uint8  // TMEZD01167: 遥测明/密状态
 	TelecontrolEncryptStatus uint8  // TMEZD01168: 遥控明/密状态
+	ReceiveRSSI              int16  // TMEZD01147: 接收RSSI
+
+	// 测试场景随遥测载荷下发的期望状态；为空时使用阈值配置。
+	TransmissionExpected  *int // transmission_channel_ExpectedState
+	TelemetryExpected     *int // Communication_Telemetry_ExpectedState
+	RemoteControlExpected *int // Communicator_RemoteControl_ExpectedState
 
 	// 故障关联编号
 	FaultCodes []string // 关联的故障编号

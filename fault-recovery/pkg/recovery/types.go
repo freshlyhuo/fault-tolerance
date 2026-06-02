@@ -74,3 +74,7 @@ const (
 func nowUnix() int64 {
 	return time.Now().Unix()
 }
+
+func nowUnixMilli() int64 {
+	return time.Now().UnixNano() / int64(time.Millisecond)
+}

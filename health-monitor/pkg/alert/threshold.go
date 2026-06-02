@@ -49,6 +49,20 @@ func isConfiguredInt(v *int) bool {
 	return v != nil
 }
 
+func firstBoolPtr(primary, fallback *bool) *bool {
+	if primary != nil {
+		return primary
+	}
+	return fallback
+}
+
+func firstIntPtr(primary, fallback *int) *int {
+	if primary != nil {
+		return primary
+	}
+	return fallback
+}
+
 func shouldSendByState(sm *state.StateManager, alertID string, isFiring bool) (bool, bool) {
 	if sm == nil {
 		if isFiring {
@@ -149,6 +163,12 @@ func faultCodeForAlertID(alertID string) string {
 		return "YW-O2-CS-5"
 	case "YW-comm-TMEZD01168_TelemetryEncryptStatus":
 		return "YW-O2-CS-6"
+	case "YW-comm-Com_SoftwareRecInstructionCount",
+		"YW-comm-Com_CorrectRecInstructionCount",
+		"YW-comm-Com_CommandSeriaPortCount",
+		"YW-comm-TMEZD01145_SNR",
+		"YW-comm-TMEZD01147_ReceiveRSSI":
+		return "YW-O2-CS-4"
 	case "YW-MomentumWheel-MomentumWheel_No_telemetry_count":
 		return "YW-O2-CS-15"
 	case "YW-MomentumWheel-WheelSpeed_X",
@@ -194,7 +214,14 @@ func CheckPowerThresholdsWithState(metrics *model.PowerMetrics, sm *state.StateM
 	thermalRefMin, thermalRefMax := rangeOrDefault(tc.Power.TMEZD01100CjBThermalRef, 4.5, 5.5)
 	loadMin, loadMax := rangeOrDefault(tc.Power.TMEZD01247LoadCurrent, 0.5, 5.0)
 
-	isFiring := metrics.BatteryVoltage < batMin || metrics.BatteryVoltage > batMax
+	isFiring := metrics.CPUVoltage < cpuMin || metrics.CPUVoltage > cpuMax
+	alerts = appendAlert(alerts, sm,
+		"YW-power-TMEZD01011cjb_CPUVoltage", "CPUVoltage", isFiring,
+		fmt.Sprintf("CPU板电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.CPUVoltage, cpuMin, cpuMax),
+		fmt.Sprintf("CPU板电压已恢复正常: %.2fV", metrics.CPUVoltage),
+		metrics.CPUVoltage, nil, now)
+
+	isFiring = metrics.BatteryVoltage < batMin || metrics.BatteryVoltage > batMax
 	alerts = appendAlert(alerts, sm,
 		"YW-power-TMEZD01095cjb_BatteryVoltage", "BatteryVoltage", isFiring,
 		fmt.Sprintf("蓄电池电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.BatteryVoltage, batMin, batMax),
@@ -207,13 +234,6 @@ func CheckPowerThresholdsWithState(metrics *model.PowerMetrics, sm *state.StateM
 		fmt.Sprintf("母线电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.BusVoltage, busMin, busMax),
 		fmt.Sprintf("母线电压已恢复正常: %.2fV", metrics.BusVoltage),
 		metrics.BusVoltage, nil, now)
-
-	isFiring = metrics.CPUVoltage < cpuMin || metrics.CPUVoltage > cpuMax
-	alerts = appendAlert(alerts, sm,
-		"YW-power-TMEZD01011cjb_CPUVoltage", "CPUVoltage", isFiring,
-		fmt.Sprintf("CPU板电压异常: %.2fV (正常[%.2f,%.2f]V)", metrics.CPUVoltage, cpuMin, cpuMax),
-		fmt.Sprintf("CPU板电压已恢复正常: %.2fV", metrics.CPUVoltage),
-		metrics.CPUVoltage, nil, now)
 
 	isFiring = metrics.ThermalRefVoltage < thermalRefMin || metrics.ThermalRefVoltage > thermalRefMax
 	alerts = appendAlert(alerts, sm,
@@ -250,49 +270,37 @@ func CheckThermalThresholdsWithState(metrics *model.ThermalMetrics, sm *state.St
 	}
 	bat1Min, bat1Max := rangeOrDefault(tc.Thermal.BatteryTemp1, 0.0, 45.0)
 	bat2Min, bat2Max := rangeOrDefault(tc.Thermal.BatteryTemp2, 0.0, 45.0)
+	now := time.Now().Unix()
 
-	for i, temp := range metrics.ThermalTemps {
-		if temp < thermMin || temp > thermMax {
-			alerts = append(alerts, &model.AlertEvent{
-				AlertID:     fmt.Sprintf("YW-thermal-TMEZD%05dcjb_ThermalTemp", 1066+i),
-				Type:        "TemperatureAbnormal",
-				Status:      model.AlertStatusFiring,
-				Source:      fmt.Sprintf("ThermalTemp%d", i+1),
-				Message:     fmt.Sprintf("热控温度%d异常: %.1f℃", i+1, temp),
-				Timestamp:   metrics.Timestamp,
-				FaultCode:   "YW-RG-ZD-4",
-				MetricValue: temp,
-			})
+	appendTemperatureAlert := func(alertID, source string, isFiring bool, firingMsg, resolvedMsg string, metricValue float64) {
+		before := len(alerts)
+		alerts = appendAlert(alerts, sm, alertID, source, isFiring, firingMsg, resolvedMsg, metricValue, nil, now)
+		for i := before; i < len(alerts); i++ {
+			alerts[i].Type = "TemperatureAbnormal"
 		}
 	}
 
-	if metrics.BatteryTemp1 < bat1Min || metrics.BatteryTemp1 > bat1Max {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     "YW-thermal-TMEZD01084_BatteryTemp1",
-			Type:        "TemperatureAbnormal",
-			Status:      model.AlertStatusFiring,
-			Source:      "BatteryTemp1",
-			Message:     fmt.Sprintf("蓄电池温度1异常: %.1f℃", metrics.BatteryTemp1),
-			Timestamp:   metrics.Timestamp,
-			FaultCode:   "YW-RG-ZD-4",
-			MetricValue: metrics.BatteryTemp1,
-		})
+	for i, temp := range metrics.ThermalTemps {
+		alertID := fmt.Sprintf("YW-thermal-TMEZD%05dcjb_ThermalTemp", 1066+i)
+		source := fmt.Sprintf("ThermalTemp%d", i+1)
+		appendTemperatureAlert(alertID, source, temp < thermMin || temp > thermMax,
+			fmt.Sprintf("热控温度%d异常: %.1f℃", i+1, temp),
+			fmt.Sprintf("热控温度%d已恢复正常: %.1f℃", i+1, temp),
+			temp)
 	}
 
-	if metrics.BatteryTemp2 < bat2Min || metrics.BatteryTemp2 > bat2Max {
-		alerts = append(alerts, &model.AlertEvent{
-			AlertID:     "YW-thermal-TMEZD01085_BatteryTemp2",
-			Type:        "TemperatureAbnormal",
-			Status:      model.AlertStatusFiring,
-			Source:      "BatteryTemp2",
-			Message:     fmt.Sprintf("蓄电池温度2异常: %.1f℃", metrics.BatteryTemp2),
-			Timestamp:   metrics.Timestamp,
-			FaultCode:   "YW-RG-ZD-4",
-			MetricValue: metrics.BatteryTemp2,
-		})
-	}
+	appendTemperatureAlert("YW-thermal-TMEZD01084_BatteryTemp1", "BatteryTemp1",
+		metrics.BatteryTemp1 < bat1Min || metrics.BatteryTemp1 > bat1Max,
+		fmt.Sprintf("蓄电池温度1异常: %.1f℃", metrics.BatteryTemp1),
+		fmt.Sprintf("蓄电池温度1已恢复正常: %.1f℃", metrics.BatteryTemp1),
+		metrics.BatteryTemp1)
 
-	now := time.Now().Unix()
+	appendTemperatureAlert("YW-thermal-TMEZD01085_BatteryTemp2", "BatteryTemp2",
+		metrics.BatteryTemp2 < bat2Min || metrics.BatteryTemp2 > bat2Max,
+		fmt.Sprintf("蓄电池温度2异常: %.1f℃", metrics.BatteryTemp2),
+		fmt.Sprintf("蓄电池温度2已恢复正常: %.1f℃", metrics.BatteryTemp2),
+		metrics.BatteryTemp2)
+
 	checkHeater := func(alertID, source string, actual bool, expected *bool) {
 		if expected == nil {
 			return
@@ -310,11 +318,11 @@ func CheckThermalThresholdsWithState(metrics *model.ThermalMetrics, sm *state.St
 	}
 
 	checkHeater("YW-thermal-TMEZD01121_PlatformHeater", "TMEZD01121_PlatformHeater",
-		metrics.PlatformHeaterSwitch, tc.Thermal.PlatformHeatingExpected.Value)
+		metrics.PlatformHeaterSwitch, firstBoolPtr(metrics.PlatformHeatingExpected, tc.Thermal.PlatformHeatingExpected.Value))
 	checkHeater("YW-thermal-TMEZD01254_BatteryHeater", "TMEZD01254_BatteryHeater",
-		metrics.BatteryHeaterSwitch, tc.Thermal.BatteryHeatingExpected.Value)
+		metrics.BatteryHeaterSwitch, firstBoolPtr(metrics.BatteryHeatingExpected, tc.Thermal.BatteryHeatingExpected.Value))
 	checkHeater("YW-thermal-TMEZD01115_TankHeater", "TMEZD01115_TankHeater",
-		metrics.TankHeaterSwitch, tc.Thermal.TankHeatingExpected.Value)
+		metrics.TankHeaterSwitch, firstBoolPtr(metrics.TankHeatingExpected, tc.Thermal.TankHeatingExpected.Value))
 
 	return alerts
 }
@@ -366,6 +374,12 @@ func CheckCommThresholdsWithState(metrics *model.CommMetrics, sm *state.StateMan
 	if prev != nil {
 		checkNotIncreased("YW-comm-TMEZD01004cjb_InstructionCount", "TMEZD01004cjb_InstructionCount",
 			metrics.ReceiveCmdCount, prev.ReceiveCmdCount)
+		checkNotIncreased("YW-comm-Com_SoftwareRecInstructionCount", "Com_SoftwareRecInstructionCount",
+			metrics.SoftwareRecInstructionCount, prev.SoftwareRecInstructionCount)
+		checkNotIncreased("YW-comm-Com_CorrectRecInstructionCount", "Com_CorrectRecInstructionCount",
+			metrics.CorrectRecInstructionCount, prev.CorrectRecInstructionCount)
+		checkNotIncreased("YW-comm-Com_CommandSeriaPortCount", "Com_CommandSeriaPortCount",
+			metrics.CommandSerialPortCount, prev.CommandSerialPortCount)
 
 		allO1NotIncreased := metrics.O1ReceiveDeviceResponseCount <= prev.O1ReceiveDeviceResponseCount &&
 			metrics.O1ReceiveTelemetryResponseCount <= prev.O1ReceiveTelemetryResponseCount &&
@@ -399,12 +413,26 @@ func CheckCommThresholdsWithState(metrics *model.CommMetrics, sm *state.StateMan
 			metrics.NoTelemetryCount, prev.NoTelemetryCount)
 	}
 
+	snr := int(metrics.SNR)
+	alerts = appendAlert(alerts, sm,
+		"YW-comm-TMEZD01145_SNR", "TMEZD01145_SNR", snr < 0 || snr > 127,
+		fmt.Sprintf("通信机信噪比异常: %d (正常[0,127])", snr),
+		fmt.Sprintf("通信机信噪比已恢复: %d", snr),
+		float64(snr), nil, now)
+
+	rssi := int(metrics.ReceiveRSSI)
+	alerts = appendAlert(alerts, sm,
+		"YW-comm-TMEZD01147_ReceiveRSSI", "TMEZD01147_ReceiveRSSI", rssi < 0 || rssi > 127,
+		fmt.Sprintf("通信机RSSI异常: %d (正常[0,127])", rssi),
+		fmt.Sprintf("通信机RSSI已恢复: %d", rssi),
+		float64(rssi), nil, now)
+
 	checkExpected("YW-comm-TMEZD01155_SwitchState", "TMEZD01155_SwitchState",
-		metrics.TransmitSwitch, tc.Comm.TransmissionExpected.Value)
+		metrics.TransmitSwitch, firstIntPtr(metrics.TransmissionExpected, tc.Comm.TransmissionExpected.Value))
 	checkExpected("YW-comm-TMEZD01167_TelemetryEncryptStatus", "TMEZD01167_TelemetryEncryptStatus",
-		metrics.TelemetryEncryptStatus, tc.Comm.TelemetryExpected.Value)
+		metrics.TelemetryEncryptStatus, firstIntPtr(metrics.TelemetryExpected, tc.Comm.TelemetryExpected.Value))
 	checkExpected("YW-comm-TMEZD01168_TelemetryEncryptStatus", "TMEZD01168_TelemetryEncryptStatus",
-		metrics.TelecontrolEncryptStatus, tc.Comm.RemoteControlExpected.Value)
+		metrics.TelecontrolEncryptStatus, firstIntPtr(metrics.RemoteControlExpected, tc.Comm.RemoteControlExpected.Value))
 
 	return alerts
 }
@@ -424,30 +452,31 @@ func CheckActuatorThresholdsWithState(metrics *model.ActuatorMetrics, sm *state.
 	now := time.Now().Unix()
 
 	tolerance := valueOrDefault(tc.MomentumWheel.WheelSpeedTolerance, 10)
-	xMin, xMax := wheelRange(tc.MomentumWheel.WheelSpeedX, 100, tolerance)
-	yMin, yMax := wheelRange(tc.MomentumWheel.WheelSpeedY, 100, tolerance)
-	zMin, zMax := wheelRange(tc.MomentumWheel.WheelSpeedZ, 100, tolerance)
+	minSpeed := 100 - tolerance
+	maxSpeed := 100 + tolerance
 
 	checkWheel := func(speed int16, axis string, min, max float64) {
 		s := float64(speed)
-		if s < min || s > max {
-			alerts = append(alerts, &model.AlertEvent{
-				AlertID:     fmt.Sprintf("YW-MomentumWheel-WheelSpeed_%s", axis),
-				Type:        "ActuatorAbnormal",
-				Status:      model.AlertStatusFiring,
-				Source:      fmt.Sprintf("WheelSpeed%s", axis),
-				Message:     fmt.Sprintf("%s轴动量轮转速异常: %d (正常[%.0f,%.0f]rpm)", axis, speed, min, max),
-				Timestamp:   metrics.Timestamp,
-				FaultCode:   "YW-O2-CS-16",
-				MetricValue: float64(speed),
-			})
+		alertID := fmt.Sprintf("YW-MomentumWheel-WheelSpeed_%s", axis)
+		source := fmt.Sprintf("WheelSpeed%s", axis)
+		firingMsg := fmt.Sprintf("%s轴动量轮转速异常: %d (正常[%.0f,%.0f]rpm)", axis, speed, min, max)
+		resolvedMsg := fmt.Sprintf("%s轴动量轮转速已恢复: %d (正常[%.0f,%.0f]rpm)", axis, speed, min, max)
+		metadata := map[string]interface{}{
+			"send_cmd_k53029": metrics.SendCmdK53029,
+			"min":             min,
+			"max":             max,
+		}
+		alerts = appendAlert(alerts, sm, alertID, source, s < min || s > max,
+			firingMsg, resolvedMsg, float64(speed), metadata, metrics.Timestamp)
+		if len(alerts) > 0 && alerts[len(alerts)-1].AlertID == alertID {
+			alerts[len(alerts)-1].Type = "ActuatorAbnormal"
 		}
 	}
 
 	if metrics.SendCmdK53029 == 1 {
-		checkWheel(metrics.WheelSpeedX, "X", xMin, xMax)
-		checkWheel(metrics.WheelSpeedY, "Y", yMin, yMax)
-		checkWheel(metrics.WheelSpeedZ, "Z", zMin, zMax)
+		checkWheel(metrics.WheelSpeedX, "X", minSpeed, maxSpeed)
+		checkWheel(metrics.WheelSpeedY, "Y", minSpeed, maxSpeed)
+		checkWheel(metrics.WheelSpeedZ, "Z", minSpeed, maxSpeed)
 	}
 
 	prev, _ := previousBusinessData(sm, "momentum_wheel", metrics).(*model.ActuatorMetrics)
