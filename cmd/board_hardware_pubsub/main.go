@@ -217,7 +217,7 @@ func scenarioSteps(name string) ([]scenarioStep, error) {
 	case "s-006", "s006", "comm_telemetry_fault":
 		return []scenarioStep{
 			{Name: "comm_counter_seed", Payload: commFaultCounterPayload(10, 0, 0, 0, 0, 0)},
-			{Name: "comm_no_telemetry_and_error_counter_increase_rp015", Payload: commFaultCounterPayload(11, 1, 1, 0, 0, 0)},
+			{Name: "comm_no_telemetry_and_error_counter_increase_rp015", Payload: commFaultCounterPayload(11, 1, 1, 0, 0, 0), RepeatIncrementKeys: commTelemetryFaultRepeatCounterKeys()},
 		}, nil
 	case "comm_start_fail":
 		return []scenarioStep{
@@ -568,6 +568,13 @@ func commReceiveCmdStalledPayload(receiveCmd, normalCount uint32) payload {
 	p := commInstructionCountPayload(normalCount)
 	p.Values["TMEZD01004cjb_InstructionCount"] = receiveCmd
 	return p
+}
+
+func commTelemetryFaultRepeatCounterKeys() []string {
+	return append(commNormalCounterKeys(),
+		"Com_No_telemetry_count",
+		"TMEZD01046_CheckErrorCount",
+	)
 }
 
 func commRFLinkRepeatCounterKeys() []string {
