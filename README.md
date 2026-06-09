@@ -73,11 +73,11 @@ GOOS=sylixos GOARCH=arm64 go build -ldflags="-s -w" -o build/fault-recovery-conf
 ## 场景测试
 1. 启动发布器：
 ```
-./board-hardware-pubsub-sylixos -addr 127.0.0.1:6551 -url /hardware/metrics -interval 2s -scenario power_resolved_cancel -warmup-count 3 -repeat=true &
+./board-hardware-pubsub-sylixos -addr 127.0.0.1:6551 -url /hardware/metrics -interval 2s -scenario comm_telemetry_fault -warmup-count 3 -repeat=true &
 ```
 2. 启动集成测试
 ```
-./integration-health-diagnosis-pubsub-sylixos -hardware-pubsub-addr 127.0.0.1:6551 -hardware-pubsub-url /hardware/metrics -diagnosis-config ./fault-diagnosis/configs/fault_trees_multi_template.json -recovery-plan-config ./fault-recovery/configs/recovery_plan_mapping_template.json -scenario power_resolved_cancel -exit-after-diagnoses 1 -recovery-drain-timeout 45s -timeout 120s
+./integration-health-diagnosis-pubsub-sylixos -hardware-pubsub-addr 127.0.0.1:6551 -hardware-pubsub-url /hardware/metrics -diagnosis-config ./fault-diagnosis/configs/fault_trees_multi_template.json -recovery-plan-config ./fault-recovery/configs/recovery_plan_mapping_template.json -scenario comm_telemetry_fault -exit-after-diagnoses 1 -recovery-drain-timeout 45s -timeout 120s
 ```
 3. 所有场景
 power_dispatch
