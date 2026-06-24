@@ -91,7 +91,7 @@
       "description": "平台热控开关打开异常-AD模块异常-重启AD",
       "instruction_id": [
         "K50166",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "K50011"
       ],
       "domain": "business",
@@ -107,7 +107,7 @@
       "description": "平台热控开关打开异常-OC指令异常-重启oc",
       "instruction_id": [
         "K50175",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "K50011"
       ],
       "domain": "business",
@@ -137,7 +137,7 @@
       "description": "电池热控开关打开异常-AD模块异常-重启AD",
       "instruction_id": [
         "K50166",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "K50132"
       ],
       "domain": "business",
@@ -153,7 +153,7 @@
       "description": "电池热控开关打开异常-OC指令异常-重启oc",
       "instruction_id": [
         "K50175",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "K50132"
       ],
       "domain": "business",
@@ -183,7 +183,7 @@
       "description": "储箱热控开关打开异常-AD模块异常-重启AD",
       "instruction_id": [
         "K50166",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "K50005"
       ],
       "domain": "business",
@@ -199,7 +199,7 @@
       "description": "储箱热控开关打开异常-OC指令异常-重启oc",
       "instruction_id": [
         "K50175",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "K50005"
       ],
       "domain": "business",
@@ -215,7 +215,7 @@
       "description": "通信机加电，仍异常关闭通信机",
       "instruction_id": [
         "K50003",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "CTRL_RECHECK_error",
         "K50004"
       ],
@@ -246,10 +246,10 @@
       "description": "通信机发射机打开失败-重启通信机",
       "instruction_id": [
         "K50004",
-        "CTRL_WAIT_10000ms",
+        "CTRL_WAIT_1000ms",
         "CTRL_RECHECK_Communication_power_status_off",
         "K50003",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "K52519"
       ],
       "domain": "business",
@@ -265,7 +265,7 @@
       "description": "空空-星间通信机接收发射手动衰减0dB",
       "instruction_id": [
         "K55501",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "K55502"
       ],
       "domain": "business",
@@ -295,10 +295,10 @@
       "description": "遥测密态切换失败-重启通信机",
       "instruction_id": [
         "K50004",
-        "CTRL_WAIT_10000ms",
+        "CTRL_WAIT_1000ms",
         "CTRL_RECHECK_Communication_power_status_off",
         "K50003",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "K50502"
       ],
       "domain": "business",
@@ -328,10 +328,10 @@
       "description": "遥控密态切换失败-重启通信机",
       "instruction_id": [
         "K50004",
-        "CTRL_WAIT_10000ms",
+        "CTRL_WAIT_1000ms",
         "CTRL_RECHECK_Communication_power_status_off",
         "K50003",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "K50504"
       ],
       "domain": "business",
@@ -347,13 +347,13 @@
       "description": "GNSSA上电异常-重启/更换至B",
       "instruction_id": [
         "K52002",
-        "CTRL_WAIT_10000ms",
+        "CTRL_WAIT_1000ms",
         "CTRL_RECHECK_GNSSA_power_status_off",
         "K50001",
-        "CTRL_WAIT_10000ms",
+        "CTRL_WAIT_1000ms",
         "CTRL_RECHECK_error",
         "K52002",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "K52130"
       ],
       "domain": "business",
@@ -369,7 +369,7 @@
       "description": "陀螺仪重启",
       "instruction_id": [
         "K51002",
-        "CTRL_WAIT_10000ms",
+        "CTRL_WAIT_1000ms",
         "CTRL_RECHECK_Gyroscope_power_status_off",
         "K51001"
       ],
@@ -386,7 +386,7 @@
       "description": "MEMS重启",
       "instruction_id": [
         "K51004",
-        "CTRL_WAIT_10000ms",
+        "CTRL_WAIT_1000ms",
         "CTRL_RECHECK_MEMS_power_status_off",
         "K51003"
       ],
@@ -403,7 +403,7 @@
       "description": "星敏重启",
       "instruction_id": [
         "K51006",
-        "CTRL_WAIT_10000ms",
+        "CTRL_WAIT_1000ms",
         "CTRL_RECHECK_StarTrackerl_power_status_off",
         "K51005"
       ],
@@ -420,7 +420,7 @@
       "description": "动量轮开机异常",
       "instruction_id": [
         "K51007",
-        "CTRL_WAIT_10000ms",
+        "CTRL_WAIT_1000ms",
         "CTRL_RECHECK_error",
         "K50004"
       ],
@@ -451,10 +451,10 @@
       "description": "动量轮转速设置异常-重启动量轮",
       "instruction_id": [
         "K51008",
-        "CTRL_WAIT_10000ms",
+        "CTRL_WAIT_1000ms",
         "CTRL_RECHECK_MomentumWheel_power_status_off",
         "K51007",
-        "CTRL_WAIT_3000ms",
+        "CTRL_WAIT_1000ms",
         "K53029"
       ],
       "domain": "business",
@@ -470,7 +470,7 @@
       "description": "动量轮遥测异常-重启动量轮",
       "instruction_id": [
         "K51008",
-        "CTRL_WAIT_10000ms",
+        "CTRL_WAIT_1000ms",
         "CTRL_RECHECK_MomentumWheel_power_status_off",
         "K51007"
       ],
